@@ -28,14 +28,7 @@ BibleQuote::BibleQuote()
     m_codec = NULL;
     m_versification = NULL;
 }
-BibleQuote::~BibleQuote()
-{
-    if(m_versification != NULL) {
-        delete m_versification;
-        m_versification = NULL;
-    }
 
-}
 void BibleQuote::setSettings(Settings *set)
 {
     m_settings = set;
@@ -150,6 +143,7 @@ void BibleQuote::loadBibleData(const int bibleID, const QString &path)
         settings->versificationName = "";
         settings->versificationFile = m_settings->v11nFile(path);
     }
+    settings->v11n->extendedData.setHasChapterZeor(m_chapterZero);
     m_versification = settings->v11n;
 }
 /**
@@ -157,7 +151,6 @@ void BibleQuote::loadBibleData(const int bibleID, const QString &path)
   */
 QString BibleQuote::readInfo(QFile &file)
 {
-    //todo: do not use every time getModuleSettings
     bool useShortName = false;
     m_moduleName.clear();
     m_moduleShortName.clear();
@@ -228,6 +221,8 @@ int BibleQuote::readBook(const int id)
 {
     m_book.clear();
     m_book.setID(id);
+    if(id >= m_bookPath.size())
+        return 1;
     const QString path = m_modulePath + "/" + m_bookPath.at(id);
     QFile file;
     file.setFileName(path);

@@ -183,11 +183,14 @@ void BibleForm::setChapters(int bookID, Versification *v11n)
 {
     if(v11n == NULL)
         return;
-    //todo: implement bibleQuotes chapter zero
     const int count = v11n->maxChapter().value(bookID, 0);
     QStringList chapters;
+    int add = 0;
+    if(v11n->extendedData.hasChapterZero()) {
+        add = -1;
+    }
     for(int i = 1; i <= count; ++i) {
-        chapters << QString::number(i);
+        chapters << QString::number(i + add);
     }
     bool same = true;
     if(m_ui->comboBox_chapters->count() == chapters.count()) {
@@ -872,6 +875,7 @@ VerseSelection BibleForm::verseSelection()
         }
         if(s.shortestStringInStartVerse.isEmpty() && s.startVerse != s.endVerse) {
             //find the last long string if the selection is over more than one verse long
+            //todo: it isn't alway unique
             QString lastLongest = selectedText;
             int lastPos = -2;
             for(int i = selectedText.size() - 1; i > 0; i--) {
@@ -935,7 +939,6 @@ VerseSelection BibleForm::verseSelection()
         }
     }
     myDebug() << s.shortestStringInStartVerse << s.shortestStringInEndVerse;
-    //todo: 0.6
     //do not this stuff with BibleQuote because some modules have wired html stuff.
     if(s.canBeUsedForMarks() == false && m_moduleManager->verseModule()->moduleType() != OBVCore::BibleQuoteModule) {
         //now the ultimative alogrithm

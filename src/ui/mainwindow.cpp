@@ -115,37 +115,15 @@ void MainWindow::deleteInterface()
         delete m_menuBar;
         //todo: remove the docks
     }
-    /*
-        if(typeid(*m_interface) == typeid(SimpleInterface)) {
-            //myDebug() << "delete simpleInterface";
+    QHash<DockWidget*, Qt::DockWidgetArea> docks = m_interface->docks();
+    QHashIterator<DockWidget*, Qt::DockWidgetArea> it(docks);
+    while(it.hasNext()) {
+        it.next();
+        if(it.key() != NULL) {
+            removeDockWidget(it.key());
+        }
+    }
 
-            if(m_interface->m_moduleDockWidget) {
-                removeDockWidget(m_interface->m_moduleDockWidget);
-            }
-            if(m_interface->m_bookDockWidget) {
-                removeDockWidget(m_interface->m_bookDockWidget);
-            }
-            if(m_interface->m_searchResultDockWidget)
-                removeDockWidget(m_interface->m_searchResultDockWidget);
-
-        } else if(typeid(*m_interface) == typeid(AdvancedInterface)) {
-            //myDebug() << "delete advacedinterface";
-            if(m_interface->m_moduleDockWidget)
-                removeDockWidget(m_interface->m_moduleDockWidget);
-            if(m_interface->m_bookDockWidget)
-                removeDockWidget(m_interface->m_bookDockWidget);
-            if(m_interface->m_advancedSearchResultDockWidget)
-                removeDockWidget(m_interface->m_advancedSearchResultDockWidget);
-
-            if(m_interface->m_notesDockWidget)
-                removeDockWidget(m_interface->m_notesDockWidget);
-            if(m_interface->m_bookmarksDockWidget)
-                removeDockWidget(m_interface->m_bookmarksDockWidget);
-            if(m_interface->m_dictionaryDockWidget)
-                removeDockWidget(m_interface->m_dictionaryDockWidget);
-            if(m_interface->m_quickJumpDockWidget)
-                removeDockWidget(m_interface->m_quickJumpDockWidget);
-        }*/
     //todo: why not?
     /*if(m_interface != 0) {
         delete m_interface;
@@ -302,7 +280,7 @@ void MainWindow::loadSettings()
         m->useParentSettings = m_settingsFile->value("useParentSettings", false).toBool();
 
         m->parentID = m_settingsFile->value("parentID").toInt();
-        ModuleDisplaySettings *displaySettings = new ModuleDisplaySettings();
+        QSharedPointer<ModuleDisplaySettings> displaySettings = QSharedPointer<ModuleDisplaySettings>(new ModuleDisplaySettings());
         displaySettings->setShowStudyNotes(m_settingsFile->value("showStudyNotes", true).toBool());
         displaySettings->setShowStrong(m_settingsFile->value("showStrong", true).toBool());
         displaySettings->setShowRefLinks(m_settingsFile->value("showRefLinks", false).toBool());
@@ -312,54 +290,6 @@ void MainWindow::loadSettings()
         m->setDisplaySettings(displaySettings);
 
         m_settings->m_moduleSettings.insert(m->moduleID, m);
-    }
-    ModuleSettings *root = new ModuleSettings();
-    root->moduleID = -1;
-    root->parentID = -2;
-    //set parents
-    {
-        QHashIterator<int, ModuleSettings*> it2(m_settings->m_moduleSettings);
-        while(it2.hasNext())  {
-            it2.next();
-            ModuleSettings *child = it2.value();
-            const int parentID = child->parentID;
-            if(parentID == -1) {
-                root->appendChild(child);
-                child->setParent(root);
-            } else if(m_settings->m_moduleSettings.contains(parentID)) {
-                ModuleSettings *r = m_settings->m_moduleSettings.value(parentID);
-                r->appendChild(child);
-                child->setParent(r);
-            }
-        }
-        ModuleDisplaySettings *displaySettings = new ModuleDisplaySettings();
-        displaySettings->setShowStudyNotes(true);
-        displaySettings->setShowStrong(true);
-        displaySettings->setShowRefLinks(false);
-        displaySettings->setShowNotes(true);
-        displaySettings->setShowMarks(true);
-        displaySettings->setShowBottomToolBar(true);
-        root->setDisplaySettings(displaySettings);
-
-        m_settings->m_moduleSettings.insert(-1, root);
-    }
-
-    //use parent settings display
-    {
-        QHashIterator<int, ModuleSettings*> it2(m_settings->m_moduleSettings);
-        while(it2.hasNext())  {
-            it2.next();
-            ModuleSettings *child = it2.value();
-            if(child->useParentSettings) {
-                const int parentID = child->parentID;
-                if(m_settings->m_moduleSettings.contains(parentID)) {
-                    child->removeDisplaySettings();
-                    ModuleSettings *r = m_settings->m_moduleSettings.value(parentID);
-                    makeSureItHasLoaded(r);
-                    child->setDisplaySettings(r->displaySettings());
-                }
-            }
-        }
     }
 
     m_settingsFile->endArray();
@@ -383,18 +313,7 @@ void MainWindow::loadSettings()
     m_settingsFile->endArray();
 
 }
-void MainWindow::makeSureItHasLoaded(ModuleSettings *settings)
-{
-    if(settings->useParentSettings) {
-		const int parentID = settings->parentID;
-		if(m_settings->m_moduleSettings.contains(parentID)) {
-			settings->removeDisplaySettings();
-			ModuleSettings *r = m_settings->m_moduleSettings.value(parentID);
-			makeSureItHasLoaded(settings);
-			settings->setDisplaySettings(r->displaySettings());
-		}
-    }
-}
+
 
 void MainWindow::writeSettings()
 {
@@ -432,8 +351,8 @@ void MainWindow::writeSettings()
         m_settingsFile->setValue("useParentSettings", m->useParentSettings);
         m_settingsFile->setValue("parentID", m->parentID);
         if(!m->useParentSettings) {
-            ModuleDisplaySettings *displaySettings = m->displaySettings();
-            if(displaySettings != NULL) {
+            ModuleDisplaySettings *displaySettings = m->displaySettings().data();
+            if(m->displaySettings()) {
                 m_settingsFile->setValue("showStudyNotes", displaySettings->showStudyNotes());
                 m_settingsFile->setValue("showStrong", displaySettings->showStrong());
                 m_settingsFile->setValue("showRefLinks", displaySettings->showRefLinks());
@@ -449,7 +368,6 @@ void MainWindow::writeSettings()
             m_settingsFile->remove("showMarks");
             m_settingsFile->remove("showBottomToolBar");
         }
-
     }
 
     m_settingsFile->endArray();

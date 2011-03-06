@@ -39,7 +39,6 @@ class BibleQuote : public BibleModule
 
 public:
     BibleQuote();
-    ~BibleQuote();
     void setSettings(Settings *settings);
     int readBook(const int id);
     void loadBibleData(const int moduleID, const QString &path);
@@ -57,7 +56,7 @@ public:
     TextRange rawTextRange(int bookID, int chapterID, int startVerse, int endVerse);
     std::pair<int, int> minMaxVerse(int bookID, int chapterID);
 
-    bool m_chapterZero;
+
 
     QStringList m_bookPath;
 
@@ -75,6 +74,7 @@ private:
     QString m_modulePath;
     QString m_moduleName;
     QString m_moduleShortName;
+    bool m_chapterZero;
 };
 
 #endif // BIBLEQUOTE_H

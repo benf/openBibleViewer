@@ -16,7 +16,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 ModuleSettings::ModuleSettings()
 {
     v11n = NULL;
-    m_displaySettings = NULL;
+    m_parent = NULL;
 
     useParentSettings = true;
     zefbible_textFormatting = NewLine;
@@ -31,18 +31,17 @@ ModuleSettings::ModuleSettings(ModuleSettings *parent)
 {
     v11n = NULL;
     m_parent = parent;
-    m_displaySettings = NULL;
 }
 
 ModuleSettings::~ModuleSettings()
 {
-    if(v11n != NULL) {
+    //todo: maybe use qsharedpointer
+    /*if(v11n != NULL) {
         delete v11n;
         v11n = NULL;
-    }
-    if(m_displaySettings != NULL) {
-        delete m_displaySettings;
-        m_displaySettings = NULL;
+    }*/
+    if(m_displaySettings) {
+        m_displaySettings.clear();
     }
 }
 
@@ -174,12 +173,12 @@ QString ModuleSettings::name(bool preferShortName) const
     }
 }
 
-ModuleDisplaySettings *ModuleSettings::displaySettings() const
+QSharedPointer<ModuleDisplaySettings> ModuleSettings::displaySettings() const
 {
     return m_displaySettings;
 }
 
-void ModuleSettings::setDisplaySettings(ModuleDisplaySettings *settings)
+void ModuleSettings::setDisplaySettings(QSharedPointer<ModuleDisplaySettings> settings)
 {
     m_displaySettings = settings;
 }
@@ -187,8 +186,7 @@ void ModuleSettings::setDisplaySettings(ModuleDisplaySettings *settings)
 void ModuleSettings::removeDisplaySettings()
 {
     if(m_displaySettings != NULL) {
-        delete m_displaySettings;
-        m_displaySettings = NULL;
+        m_displaySettings.clear();
     }
 
 }

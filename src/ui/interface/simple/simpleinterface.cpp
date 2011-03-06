@@ -54,7 +54,7 @@ void SimpleInterface::init()
 }
 void SimpleInterface::createDocks()
 {
-    /*m_moduleDockWidget = new ModuleDockWidget(this->parentWidget());
+    m_moduleDockWidget = new ModuleDockWidget(this->parentWidget());
     setAll(m_moduleDockWidget);
     m_moduleDockWidget->init();
     connect(m_moduleDockWidget, SIGNAL(get(QString)), this, SLOT(pharseUrl(QString)));
@@ -66,30 +66,30 @@ void SimpleInterface::createDocks()
     m_searchResultDockWidget = new SearchResultDockWidget(this->parentWidget());
     setAll(m_searchResultDockWidget);
     m_searchResultDockWidget->hide();
-    connect(m_searchResultDockWidget, SIGNAL(get(QString)), this, SLOT(pharseUrl(QString)));*/
+    connect(m_searchResultDockWidget, SIGNAL(get(QString)), this, SLOT(pharseUrl(QString)));
 }
 
 void SimpleInterface::createToolBars()
 {
-    /* m_bar = new QToolBar(this->parentWidget());
-     m_bar->setObjectName("mainToolBar");
-     m_bar->setIconSize(QSize(32, 32));
-     m_bar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_bar = new QToolBar(this->parentWidget());
+    m_bar->setObjectName("mainToolBar");
+    m_bar->setIconSize(QSize(32, 32));
+    m_bar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 
-     m_actionSearch = new QAction(QIcon::fromTheme("edit-find", QIcon(":/icons/32x32/edit-find.png")), tr("Search"), m_bar);
-     connect(m_actionSearch, SIGNAL(triggered()), this, SLOT(showSearchDialog()));
-     m_actionZoomIn = new QAction(QIcon::fromTheme("zoom-in", QIcon(":/icons/32x32/zoom-in.png")), tr("Zoom In"), m_bar);
-     connect(m_actionZoomIn, SIGNAL(triggered()), this, SLOT(zoomIn()));
-     m_actionZoomOut = new QAction(QIcon::fromTheme("zoom-out", QIcon(":/icons/32x32/zoom-out.png")), tr("Zoom Out"), m_bar);
-     connect(m_actionZoomOut, SIGNAL(triggered()), this, SLOT(zoomOut()));
-     m_actionModule = new QAction(QIcon(":/icons/32x32/module.png"), tr("Module"), m_bar);
-     connect(m_actionModule, SIGNAL(triggered()), this->parent(), SLOT(showSettingsDialog_Module()));
-     m_bar->addAction(m_actionSearch);
-     m_bar->addSeparator();
-     m_bar->addAction(m_actionZoomIn);
-     m_bar->addAction(m_actionZoomOut);
-     m_bar->addSeparator();
-     m_bar->addAction(m_actionModule);*/
+    m_actionSearch = new QAction(QIcon::fromTheme("edit-find", QIcon(":/icons/32x32/edit-find.png")), tr("Search"), m_bar);
+    connect(m_actionSearch, SIGNAL(triggered()), this, SLOT(showSearchDialog()));
+    m_actionZoomIn = new QAction(QIcon::fromTheme("zoom-in", QIcon(":/icons/32x32/zoom-in.png")), tr("Zoom In"), m_bar);
+    connect(m_actionZoomIn, SIGNAL(triggered()), this, SLOT(zoomIn()));
+    m_actionZoomOut = new QAction(QIcon::fromTheme("zoom-out", QIcon(":/icons/32x32/zoom-out.png")), tr("Zoom Out"), m_bar);
+    connect(m_actionZoomOut, SIGNAL(triggered()), this, SLOT(zoomOut()));
+    m_actionModule = new QAction(QIcon(":/icons/32x32/module.png"), tr("Module"), m_bar);
+    connect(m_actionModule, SIGNAL(triggered()), this->parent(), SLOT(showSettingsDialog_Module()));
+    m_bar->addAction(m_actionSearch);
+    m_bar->addSeparator();
+    m_bar->addAction(m_actionZoomIn);
+    m_bar->addAction(m_actionZoomOut);
+    m_bar->addSeparator();
+    m_bar->addAction(m_actionModule);
 }
 
 void SimpleInterface::createMenu()
@@ -100,9 +100,9 @@ void SimpleInterface::createMenu()
 QHash<DockWidget*, Qt::DockWidgetArea> SimpleInterface::docks()
 {
     QHash<DockWidget *, Qt::DockWidgetArea> ret;
-    /*ret.insert(m_searchResultDockWidget, Qt::RightDockWidgetArea);
+    ret.insert(m_searchResultDockWidget, Qt::RightDockWidgetArea);
     ret.insert(m_bookDockWidget, Qt::LeftDockWidgetArea);
-    ret.insert(m_moduleDockWidget, Qt::LeftDockWidgetArea);*/
+    ret.insert(m_moduleDockWidget, Qt::LeftDockWidgetArea);
     return ret;
 
 }
@@ -121,16 +121,16 @@ bool SimpleInterface::hasToolBar()
 QList<QToolBar *> SimpleInterface::toolBars()
 {
     QList<QToolBar *> list;
-    // list.append(m_bar);
+    list.append(m_bar);
     return list;
 }
 void SimpleInterface::zoomIn()
 {
-    //ui->textBrowser->zoomIn();
+    ui->textBrowser->zoomIn();
 }
 void SimpleInterface::zoomOut()
 {
-    //ui->textBrowser->zoomOut();
+    ui->textBrowser->zoomOut();
 }
 void SimpleInterface::loadModuleDataByID(int id)
 {
@@ -255,24 +255,24 @@ void SimpleInterface::pharseUrl(QString url)
 }
 void SimpleInterface::showText(const QString &text)
 {
-    /*  QString cssFile = m_settings->getModuleSettings(m_moduleManager->verseModule()->moduleID()).styleSheet;
-      if(cssFile.isEmpty())
-          cssFile = ":/data/css/default.css";
+    QString cssFile = m_settings->getModuleSettings(m_moduleManager->verseModule()->moduleID())->styleSheet;
+    if(cssFile.isEmpty())
+        cssFile = ":/data/css/default.css";
 
-      ui->textBrowser->setHtml(text);
-      ui->textBrowser->loadResource(QTextDocument::StyleSheetResource, QUrl(cssFile));
+    ui->textBrowser->setHtml(text);
+    ui->textBrowser->loadResource(QTextDocument::StyleSheetResource, QUrl(cssFile));
 
-      if(m_moduleManager->verseModule()->verseID() > 1)
-          ui->textBrowser->scrollToAnchor("currentVerse");*/
+    if(m_moduleManager->verseModule()->lastTextRanges()->minVerseID() > 1)
+        ui->textBrowser->scrollToAnchor("currentVerse");
 }
 void SimpleInterface::setTitle(const QString &title)
 {
-    //this->parentWidget()->setWindowTitle(title + " - " + tr("openBibleViewer"));
+    this->parentWidget()->setWindowTitle(title + " - " + tr("openBibleViewer"));
 }
 
 void SimpleInterface::setChapters(const QStringList &chapters)
 {
-    // m_bookDockWidget->setChapters(chapters);
+    //m_bookDockWidget->setChapters(chapters);
 }
 
 void SimpleInterface::setBooks(const QHash<int, QString> &books)
@@ -332,26 +332,57 @@ void SimpleInterface::showChapter(int chapterID, int verseID)
 }
 void SimpleInterface::nextChapter()
 {
-    /* //DEBUG_FUNC_NAME
-     if(m_moduleManager->verseModule()->chapterID() < m_moduleManager->verseModule()->chaptersCount() - 1) {
-         readChapter(m_moduleManager->verseModule()->chapterID() + 1);
-     } else if(m_moduleManager->verseModule()->bookID() < m_moduleManager->verseModule()->booksCount() - 1) {
-         readBook(m_moduleManager->verseModule()->bookID() + 1);
-     }*/
+    if(!m_moduleManager->bibleLoaded())
+        return;
+    if(m_moduleManager->verseModule()->lastTextRanges()->minChapterID() <
+            m_moduleManager->verseModule()->versification()->maxChapter().value(m_moduleManager->verseModule()->lastTextRanges()->minBookID()) - 1) {
+        VerseUrl bibleUrl;
+        VerseUrlRange range;
+        range.setModule(VerseUrlRange::LoadCurrentModule);
+        range.setBook(VerseUrlRange::LoadCurrentBook);
+        range.setChapter(m_moduleManager->verseModule()->lastTextRanges()->minChapterID() + 1);
+        range.setWholeChapter();
+        bibleUrl.addRange(range);
+        m_actions->get(bibleUrl);
+    } else if(m_moduleManager->verseModule()->lastTextRanges()->minBookID() < m_moduleManager->verseModule()->versification()->bookCount() - 1) {
+        VerseUrl bibleUrl;
+        VerseUrlRange range;
+        range.setModule(VerseUrlRange::LoadCurrentModule);
+        range.setBook(m_moduleManager->verseModule()->lastTextRanges()->minBookID() + 1);
+        range.setChapter(VerseUrlRange::LoadFirstChapter);
+        range.setWholeChapter();
+        bibleUrl.addRange(range);
+        m_actions->get(bibleUrl);
+    }
 }
 void SimpleInterface::previousChapter()
 {
-    //DEBUG_FUNC_NAME
-    /* if(m_moduleManager->verseModule()->chapterID() > 0) {
-         readChapter(m_moduleManager->verseModule()->chapterID() - 1);
-     } else if(m_moduleManager->verseModule()->bookID() > 0) {
-         readBook(m_moduleManager->verseModule()->bookID() - 1);
-         readChapter(m_moduleManager->verseModule()->chaptersCount() - 1);
-     }*/
+    //see also BibleManager
+    if(!m_moduleManager->bibleLoaded())
+        return;
+    if(m_moduleManager->verseModule()->lastTextRanges()->minChapterID() > 0) {
+        VerseUrl bibleUrl;
+        VerseUrlRange range;
+        range.setModule(VerseUrlRange::LoadCurrentModule);
+        range.setBook(VerseUrlRange::LoadCurrentBook);
+        range.setChapter(m_moduleManager->verseModule()->lastTextRanges()->minChapterID() - 1);
+        range.setWholeChapter();
+        bibleUrl.addRange(range);
+        m_actions->get(bibleUrl);
+    } else if(m_moduleManager->verseModule()->lastTextRanges()->minBookID() > 0) {
+        VerseUrl bibleUrl;
+        VerseUrlRange range;
+        range.setModule(VerseUrlRange::LoadCurrentModule);
+        range.setBook(m_moduleManager->verseModule()->lastTextRanges()->minBookID() - 1);
+        range.setChapter(VerseUrlRange::LoadLastChapter);
+        range.setWholeChapter();
+        bibleUrl.addRange(range);
+        m_actions->get(bibleUrl);
+    }
 }
 bool SimpleInterface::eventFilter(QObject *obj, QEvent *event)
 {
-    /*if(obj == ui->textBrowser) {
+    if(obj == ui->textBrowser) {
         if(event->type() == QEvent::KeyPress) {
             QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
             if(keyEvent->key() == Qt::Key_Left || keyEvent->key() == Qt::Key_PageUp) {
@@ -370,8 +401,7 @@ bool SimpleInterface::eventFilter(QObject *obj, QEvent *event)
     } else {
         return QWidget::eventFilter(obj, event);
     }
-    return QWidget::eventFilter(obj, event);*/
-    return true;
+    return QWidget::eventFilter(obj, event);
 }
 
 SimpleInterface::~SimpleInterface()
@@ -419,24 +449,24 @@ void SimpleInterface::settingsChanged(Settings oldSettings, Settings newSettings
 }
 void SimpleInterface::showSearchDialog()
 {
-    /* SearchDialog *sDialog = new SearchDialog(this);
-     connect(sDialog, SIGNAL(searched(SearchQuery)), this, SLOT(search(SearchQuery)));
-     if(ui->textBrowser->textCursor().hasSelection() == true) //something is selected
-         sDialog->setText(ui->textBrowser->textCursor().selectedText());
-     sDialog->show();
-     sDialog->exec();*/
+    SearchDialog *sDialog = new SearchDialog(this);
+    connect(sDialog, SIGNAL(searched(SearchQuery)), this, SLOT(search(SearchQuery)));
+    if(ui->textBrowser->textCursor().hasSelection() == true) //something is selected
+        sDialog->setText(ui->textBrowser->textCursor().selectedText());
+    sDialog->show();
+    sDialog->exec();
 }
 void SimpleInterface::search(SearchQuery query)
 {
-    /*m_searchResultDockWidget->show();
+    m_searchResultDockWidget->show();
     Search s;
     setAll(&s);
     SearchResult *res = s.search(query);
-    m_searchResultDockWidget->setSearchResult(*res);*/
+    m_searchResultDockWidget->setSearchResult(*res);
 }
 void SimpleInterface::changeEvent(QEvent *e)
 {
-    /*QWidget::changeEvent(e);
+    QWidget::changeEvent(e);
     switch(e->type()) {
     case QEvent::LanguageChange:
         ui->retranslateUi(this);
@@ -447,5 +477,5 @@ void SimpleInterface::changeEvent(QEvent *e)
         break;
     default:
         break;
-    }*/
+    }
 }
