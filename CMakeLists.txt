@@ -120,7 +120,7 @@ set ( openBibleViewer_HDRS
     src/core/verse/rangeenum.h
     src/core/verse/textrange.h
     src/core/verse/textranges.h
-    src/core/verse/verse.h
+    src/core/verse/section.h
     src/core/verse/versification.h
     src/core/verse/versificationextendeddata.h
     src/core/verse/versification/versification_kjv.h
@@ -197,7 +197,7 @@ set ( openBibleViewer_SRCS
     src/core/verse/rangeenum.cpp
     src/core/verse/textrange.cpp
     src/core/verse/textranges.cpp
-    src/core/verse/verse.cpp
+    src/core/verse/section.cpp
     src/core/verse/versification.cpp
     src/core/verse/versificationextendeddata.cpp
     src/core/verse/versification/versification_kjv.cpp

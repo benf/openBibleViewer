@@ -11,37 +11,34 @@ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
-#include "verse.h"
-Verse::Verse()
+#ifndef VERSE_H
+#define VERSE_H
+#include <QtCore/QString>
+class Section
 {
-    m_verseID = -1;
-    m_text = "";
-}
+public:
+    enum SectionType {
+        VerseSection = 0,
+        HeadingSection = 1,
+        CommentSection = 2,
+        RefSection = 3
+    };
 
-Verse::Verse(const int verseID, const QString &text)
-{
-    m_verseID = verseID;
-    m_text = text;
-}
-int Verse::verseID() const
-{
-    return m_verseID;
-}
+    Verse();
+    Verse(const int verseID, const QString &text);
+    void setID(const int id);
+    void setData(const QString &text);
+    void setType()
 
-QString Verse::data() const
-{
-    return m_text;
-}
-void Verse::append(const QString &str)
-{
-    m_text.append(str);
-}
+    int verseID() const;
+    QString data() const;
 
-void Verse::prepend(const QString &str)
-{
-    m_text.prepend(str);
-}
-void Verse::insert(const int position, const QString & str)
-{
-    m_text.insert(position, str);
-}
+    void append(const QString &str);
+    void prepend(const QString &str);
+    void insert(const int position, const QString & str);
+private:
+    int m_verseID;
+    QString m_text;
+};
+
+#endif // VERSE_H

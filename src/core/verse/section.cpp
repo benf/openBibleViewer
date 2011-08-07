@@ -11,23 +11,37 @@ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
-#ifndef VERSE_H
-#define VERSE_H
-#include <QtCore/QString>
-class Verse
+#include "section.h"
+Section::Section()
 {
-public:
-    Verse();
-    Verse(const int verseID, const QString &text);
-    int verseID() const;
-    QString data() const;
+    m_verseID = -1;
+    m_text = "";
+}
 
-    void append(const QString &str);
-    void prepend(const QString &str);
-    void insert(const int position, const QString & str);
-private:
-    int m_verseID;
-    QString m_text;
-};
+Section::Section(const int verseID, const QString &text)
+{
+    m_verseID = verseID;
+    m_text = text;
+}
+int Section::verseID() const
+{
+    return m_verseID;
+}
 
-#endif // VERSE_H
+QString Section::data() const
+{
+    return m_text;
+}
+void Section::append(const QString &str)
+{
+    m_text.append(str);
+}
+
+void Section::prepend(const QString &str)
+{
+    m_text.prepend(str);
+}
+void Section::insert(const int position, const QString & str)
+{
+    m_text.insert(position, str);
+}
