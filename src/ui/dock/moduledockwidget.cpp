@@ -51,17 +51,30 @@ void ModuleDockWidget::init()
   */
 void ModuleDockWidget::loadModuleData(QModelIndex index)
 {
-    const int moduleID = index.data(Qt::UserRole + 1).toString().toInt();
-    if(moduleID >= 0 && m_settings->getModuleSettings(moduleID)->moduleType != OBVCore::FolderModule && m_dontLoad == false) {
-        m_moduleID = moduleID;
-        VerseUrl url;
-        VerseUrlRange range;
-        range.setModule(moduleID);
-        range.setBook(VerseUrlRange::LoadFirstBook);
-        range.setChapter(VerseUrlRange::LoadFirstChapter);
-        range.setWholeChapter();
-        url.addRange(range);
-        m_actions->get(url);
+
+    const int moduleID = index.data(Qt::UserRole + 1).toInt();
+    if(m_dontLoad == false && moduleID >= 0) {
+
+        Module *m = m_moduleManager->getModule(moduleID);
+        //const OBVCore::ModuleType type = m->moduleType();
+        const OBVCore::ModuleClass cl = m->moduleClass();
+        if(cl == OBVCore::DictionaryModuleClass) {
+            m_actions->get("dict:/" + QString::number(moduleID), mod);
+        } else if(cl == OBVCore::WebPageClass) {
+            m_actions->get("webpage:/" + QString::number(moduleID), mod);
+        } else if(cl == OBVCore::BibleModuleClass) {
+            myDebug() << "bible";
+            m_moduleID = moduleID;
+            VerseUrl url;
+            VerseUrlRange range;
+            range.setModule(moduleID);
+            range.setBook(VerseUrlRange::LoadCurrentBook);
+            range.setChapter(VerseUrlRange::LoadCurrentChapter);
+            range.setStartVerse(VerseUrlRange::LoadCurrentVerse);
+            range.setOpenToTransformation(true);
+            url.addRange(range);
+            m_actions->get(url, mod);
+        }
     }
 }
 /**
