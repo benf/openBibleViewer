@@ -13,13 +13,16 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "biblepassageframe.h"
 #include "ui_biblepassageframe.h"
-
+#include "src/core/link/biblelink.h"
 BiblePassageFrame::BiblePassageFrame(QWidget *parent) :
     QFrame(parent),
     ui(new Ui::BiblePassageFrame)
 {
     ui->setupUi(this);
     m_count = 0;
+    connect(ui->pushButton_add, SIGNAL(clicked()), this, SLOT(add()));
+    connect(ui->pushButton_replace, SIGNAL(clicked()), this, SLOT(replace()));
+    connect(ui->treeView, SIGNAL(activated(QModelIndex)), this ,SLOT(reload(QModelIndex)));
 }
 
 BiblePassageFrame::~BiblePassageFrame()
@@ -53,11 +56,14 @@ void BiblePassageFrame::addBox_BCV(const int bookID, const int chapterID, const 
     verse->setObjectName("verse_" + QString::number(m_count));
     QToolButton *button = newButton(m_count);
 
-    books->insertItems(0, m_bookNames);
-    books->setCurrentIndex(bookID);
+    QSharedPointer<Versification> v = m_settings->getModuleSettings(m_moduleID)->getV11n();
+    if(v != NULL) {
+        books->insertItems(0, v->bookNames().values());
+        books->setCurrentIndex(v->bookIDs().indexOf(bookID));
+    }
+
     chapter->setValue(chapterID + 1);
     verse->setValue(verseID + 1);
-
 
     layout->addWidget(books);
     layout->addWidget(chapter);
@@ -83,8 +89,11 @@ void BiblePassageFrame::addBox_BCVV(const int bookID, const int chapterID, const
     endVerse->setObjectName("endVerse_" + QString::number(m_count));
     QToolButton *button = newButton(m_count);
 
-    books->insertItems(0, m_bookNames);
-    books->setCurrentIndex(bookID);
+    QSharedPointer<Versification> v = m_settings->getModuleSettings(m_moduleID)->getV11n();
+    if(v != NULL) {
+        books->insertItems(0, v->bookNames().values());
+        books->setCurrentIndex(v->bookIDs().indexOf(bookID));
+    }
     chapter->setValue(chapterID + 1);
 
     startVerse->setValue(startVerseID + 1);
@@ -110,8 +119,13 @@ void BiblePassageFrame::addBox_BC(const int bookID, const int chapterID)
     QSpinBox *chapter = new QSpinBox(this);
     chapter->setObjectName("chapter_" + QString::number(m_count));
 
-    books->insertItems(0, m_bookNames);
-    books->setCurrentIndex(bookID);
+    QSharedPointer<Versification> v = m_settings->getModuleSettings(m_moduleID)->getV11n();
+    if(v != NULL) {
+        books->insertItems(0, v->bookNames().values());
+        books->setCurrentIndex(v->bookIDs().indexOf(bookID));
+    }
+
+
     chapter->setValue(chapterID + 1);
     QToolButton *button = newButton(m_count);
 
@@ -247,7 +261,10 @@ VerseUrl BiblePassageFrame::toVerseUrl()
             continue;
         }
         if(o->objectName().startsWith("books")) {
-            books[id] = ((QComboBox*)o)->currentIndex();
+            QSharedPointer<Versification> v = m_settings->getModuleSettings(m_moduleID)->getV11n();
+            if(v != NULL) {
+                books[id] = v->bookIDs().at(((QComboBox*)o)->currentIndex());
+            }
 
         } else if(o->objectName().startsWith("chapter")) {
             chapter[id] = ((QSpinBox*)o)->value() - 1;
@@ -264,7 +281,6 @@ VerseUrl BiblePassageFrame::toVerseUrl()
     while(it.hasNext()) {
         it.next();
         if(it.key() > -1) {
-            //myDebug() << "key = " << it.key();
             VerseUrlRange r;
             r.setModule(m_moduleID);
             r.setBook(it.value());
@@ -276,36 +292,34 @@ VerseUrl BiblePassageFrame::toVerseUrl()
             url.addRange(r);
         }
     }
-    //myDebug() << url.toString();
     return url;
 }
 void BiblePassageFrame::setVerseUrl(const VerseUrl &url)
 {
-    //myDebug() << url.toString();
     setVerseUrlRanges(url.ranges());
 }
 void BiblePassageFrame::setVerseUrlRanges(const QList<VerseUrlRange> &ranges)
 {
-    if(!ranges.isEmpty()) {
-        m_moduleID = ranges.first().moduleID();
-        Versification *v = m_settings->getModuleSettings(m_moduleID)->getV11n();
-        if(v != NULL) {
-            m_bookNames = v->bookNames().values();//todo:
-        }
-        QModelIndexList list = m_proxyModel->match(m_model->invisibleRootItem()->index(),
-                               Qt::UserRole + 1,
-                               QString::number(m_moduleID),
-                               1 ,
-                               Qt::MatchExactly);
-        //myDebug() << "list.size() = " << list.size();
-        if(!list.isEmpty()) {
-            //myDebug() << list.first().data(Qt::UserRole + 1);
-            ui->treeView->selectionModel()->clear();
-            ui->treeView->selectionModel()->select(list.first(), QItemSelectionModel::Select);
-        }
+    if(ranges.isEmpty()) {
+        return;
     }
+    m_moduleID = ranges.first().moduleID();
+
+
+    QModelIndexList list = m_proxyModel->match(m_model->invisibleRootItem()->index(),
+                           Qt::UserRole + 1,
+                           QString::number(m_moduleID),
+                           1,
+                           Qt::MatchExactly);
+
+    if(!list.isEmpty()) {
+        ui->treeView->selectionModel()->clear();
+        ui->treeView->selectionModel()->select(list.first(), QItemSelectionModel::Select);
+    }
+
     foreach(const VerseUrlRange & r, ranges) {
         m_moduleID = r.moduleID();
+
         if(r.startVerse() == VerseUrlRange::LoadFirstVerse && r.endVerse() == VerseUrlRange::LoadLastVerse) {
             addBox_BC(r.bookID(), r.chapterID());
         } else if(r.startVerseID() != r.endVerseID()) {
@@ -315,4 +329,53 @@ void BiblePassageFrame::setVerseUrlRanges(const QList<VerseUrlRange> &ranges)
         }
     }
 
+}
+void BiblePassageFrame::add()
+{
+    getModuleID();
+    if(m_moduleID == -1) {
+        return;
+    }
+    const QString text = ui->lineEdit->text();
+    BibleLink link(m_moduleID, m_settings->getModuleSettings(m_moduleID)->getV11n());
+
+    if(link.isBibleLink(text)) {
+        setVerseUrl(link.getUrl(text));
+    } else {
+
+    }
+}
+void BiblePassageFrame::getModuleID()
+{
+    QModelIndexList list =ui->treeView->selectionModel()->selectedIndexes();
+    if(!list.isEmpty()) {
+        m_moduleID = list.first().data(Qt::UserRole + 1).toInt();
+    }
+}
+void BiblePassageFrame::reload(const QModelIndex &index)
+{
+    m_moduleID = index.data(Qt::UserRole + 1).toInt();
+    QSharedPointer<Versification> v = m_settings->getModuleSettings(m_moduleID)->getV11n();
+    foreach(QObject * o, this->children()) {
+        if(o->objectName().startsWith("books")) {
+            QComboBox *box = (QComboBox*)o;
+            int index = box->currentIndex();
+            box->clear();
+            box->insertItems(0, v->bookNames().values());
+            box->setCurrentIndex(index);
+        }
+    }
+    //todo: reload
+}
+
+void BiblePassageFrame::replace()
+{
+    clear();
+    add();
+}
+void BiblePassageFrame::clear()
+{
+    for(int i = 0; i <= m_count;i++) {
+        deleteBox(i);
+    }
 }

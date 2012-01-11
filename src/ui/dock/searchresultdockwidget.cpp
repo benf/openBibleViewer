@@ -11,14 +11,15 @@ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
-#include <QtGui/QMessageBox>
 #include "searchresultdockwidget.h"
+#include <QtGui/QMessageBox>
+#include <QtCore/QPointer>
 #include "ui_searchresultdockwidget.h"
 #include "src/core/search/searchhit.h"
 #include "src/ui/dialog/searchinfodialog.h"
 #include "src/core/dbghelper.h"
 #include "src/core/obvcore.h"
-#include "src/core/verse/verseurl.h"
+#include "src/core/link/verseurl.h"
 SearchResultDockWidget::SearchResultDockWidget(QWidget *parent) :
     DockWidget(parent),
     ui(new Ui::SearchResultDockWidget)
@@ -27,6 +28,8 @@ SearchResultDockWidget::SearchResultDockWidget(QWidget *parent) :
     connect(ui->listWidget_search, SIGNAL(currentItemChanged(QListWidgetItem *, QListWidgetItem *)), this, SLOT(goToSearchResult(QListWidgetItem *)));
     connect(ui->pushButton_searchInfo, SIGNAL(clicked()), this, SLOT(searchInfo()));
     ui->pushButton_searchInfo->setDisabled(true);
+    m_searchResult = NULL;
+
 }
 
 SearchResultDockWidget::~SearchResultDockWidget()
@@ -41,7 +44,8 @@ void SearchResultDockWidget::setSearchResult(SearchResult *searchResult)
     QStringList outlist;
     const QList<SearchHit> hits = searchResult->hits(SearchHit::BibleHit);
     foreach(const SearchHit & hit, hits) {
-        const QString bookn = m_moduleManager->verseModule()->versification()->bookName(hit.value(SearchHit::BookID).toInt());
+        QSharedPointer<Versification> v11n = m_settings->getV11N(hit.value(SearchHit::ModuleID).toInt());
+        const QString bookn = v11n->bookName(hit.value(SearchHit::BookID).toInt());
         outlist << bookn + " " + QString::number(hit.value(SearchHit::ChapterID).toInt() + 1) + " , " +
                 QString::number(hit.value(SearchHit::VerseID).toInt() + 1);
     }
@@ -56,15 +60,14 @@ void SearchResultDockWidget::goToSearchResult(QListWidgetItem * item)
 
     if(id < m_searchResult->hits().size() && id >= 0) {
         SearchHit hit = m_searchResult->hits().at(id);
-        if(!m_moduleManager->contains(hit.value(SearchHit::BibleID).toInt()))
+        if(!m_moduleManager->contains(hit.value(SearchHit::ModuleID).toInt()))
             return;
 
         VerseUrlRange range;
-        range.setModule(hit.value(SearchHit::BibleID).toInt());
+        range.setModule(hit.value(SearchHit::ModuleID).toInt());
         range.setBook(hit.value(SearchHit::BookID).toInt());
         range.setChapter(hit.value(SearchHit::ChapterID).toInt());
-        range.setActiveVerse(hit.value(SearchHit::VerseID).toInt());
-        range.setWholeChapter();
+        range.setStartVerse(hit.value(SearchHit::VerseID).toInt());
 
         VerseUrl url(range);
         url.setParam("searchInCurrentText", "true");
@@ -73,29 +76,31 @@ void SearchResultDockWidget::goToSearchResult(QListWidgetItem * item)
 }
 void SearchResultDockWidget::searchInfo()
 {
-    if(!m_moduleManager->contains(m_moduleManager->verseModule()->moduleID())) {
+    SearchResult *result = m_searchResult;
+    if(result == NULL) {
         QMessageBox::information(0, tr("Error"), tr("No search information available."));
         return;
     }
 
-    SearchResult *result = m_searchResult;
     const QList<SearchHit> list = result->hits(SearchHit::BibleHit);
-
+    QSharedPointer<Versification> v11n_t;
     QStringList textList;
     foreach(const SearchHit & hit, list) {
         if(hit.type() == SearchHit::BibleHit) {
-            const QString bookn = m_moduleManager->verseModule()->versification()->bookName(hit.value(SearchHit::BookID).toInt()); //todo: maybe the bible isn't loaded and you need another bookNames
+            QSharedPointer<Versification> v11n = m_settings->getV11N(hit.value(SearchHit::ModuleID).toInt());
+            v11n_t = v11n;
+            const QString bookn = v11n->bookName(hit.value(SearchHit::BookID).toInt());
             textList << hit.value(SearchHit::VerseText).toString() + "\n - <i>" + bookn
                      + " " + QString::number(hit.value(SearchHit::ChapterID).toInt() + 1)
                      + " , " + QString::number(hit.value(SearchHit::VerseID).toInt() + 1) + "</i>";
         }
     }
 
-    SearchInfoDialog sDialog;
-    sDialog.show();
+    QPointer<SearchInfoDialog> sDialog = new SearchInfoDialog(this);
 
-    sDialog.setInfo(result, m_moduleManager->verseModule()->versification(), m_searchResult->searchQuery.searchText, textList);
-    sDialog.exec();
+    sDialog->setInfo(result, v11n_t, m_searchResult->searchQuery.searchText, textList);
+    sDialog->exec();
+    delete sDialog;
 
 }
 void SearchResultDockWidget::nextVerse()

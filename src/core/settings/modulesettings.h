@@ -27,6 +27,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "src/core/settings/moduledisplaysettings.h"
 /**
   * ModuleSettings represents a settings class for modules.
+  * Creating ModuleSetting is verry tricky. You have to set the parents on your own, also not not forget to append it the parent.
   */
 class ModuleSettings
 {
@@ -34,6 +35,11 @@ public:
     ModuleSettings();
     ModuleSettings(ModuleSettings *parent);
     ~ModuleSettings();
+
+    enum ZefBible_TextFormating {
+        NewLine = 0,//Neue Zeile nach Vers
+        Block = 1//Unformatierter Textblock
+    };
 
     void setParent(ModuleSettings *parent);
     ModuleSettings *parent() const;
@@ -49,6 +55,7 @@ public:
     QString name(bool preferShort = false) const;
 
     int moduleID;
+    QString moduleUID;
     QString modulePath;
     QString moduleName;
     QString moduleShortName;
@@ -56,11 +63,6 @@ public:
 
     QString encoding;
     bool useParentSettings;
-
-    enum ZefBible_TextFormating {
-        NewLine = 0,//Neue Zeile nach Vers
-        Block = 1//Unformatierter Textblock
-    };
 
     ZefBible_TextFormating zefbible_textFormatting;
 
@@ -70,6 +72,9 @@ public:
 
     QString styleSheet;
 
+    OBVCore::DefaultModule defaultModule;
+    OBVCore::ContentType contentType;
+
     /**
       * It can be a path to a versification file
       * or a name of a versification e.g kjv
@@ -77,14 +82,17 @@ public:
     QString versificationFile;
     QString versificationName;
     bool hasVersfication;
-    Versification *v11n;
+    QWeakPointer<Versification> v11n;
+
     /**
       * If the is no settingsfile or it is empty, v11n remains the same(mostly NULL)
       */
-    void loadVersification();
+    QSharedPointer<Versification> loadVersification();
     void saveVersification();
 
-    Versification *getV11n();
+    QSharedPointer<Versification> getV11n();
+
+    bool noV11N();
 
     int parentID;
 

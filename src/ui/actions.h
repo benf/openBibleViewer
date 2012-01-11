@@ -17,7 +17,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include <QObject>
 #include <QtCore/QString>
 #include <QtCore/QUrl>
-#include "src/core/verse/verseurl.h"
+#include "src/core/link/verseurl.h"
 #include "src/core/verse/textranges.h"
 #include "src/core/verse/versification.h"
 #include "src/core/search/searchresult.h"
@@ -26,18 +26,23 @@ class Actions : public QObject
     Q_OBJECT
 public:
     explicit Actions(QObject *parent = 0);
+    enum OpenLinkModifiers {
+        NoModifer,
+        OpenInNewWindow,
+        ForceOpenInThisWindow
+    };
 
 signals:
-    void _showChapter(const int moduleID, const int bookID, const int chapterID);
     void _previousChapter();
     void _nextChapter();
+
+
     /**
       By default the Interface pharse all urls.
       */
-    void _get(const QString &url);
-    void _get(const VerseUrl &url);
+    void _get(const QString &url, const Actions::OpenLinkModifiers mod);
+    void _get(const VerseUrl &url, const Actions::OpenLinkModifiers mod);
 
-    void _showNote(const QString &nodeID);
 
     void _setCurrentBook(const QSet<int> &bookID);
     void _setCurrentChapter(const QSet<int> &chapterID);
@@ -45,59 +50,73 @@ signals:
     void _reloadActive();
 
     void _setTitle(const QString &title);
-    void _updateChapters(int bookID, Versification *v11n);
+    void _updateChapters(int bookID, QSharedPointer<Versification> v11n);
+    void _updateBooks(QSharedPointer<Versification> v11n);
+
     void _clearChapters();
-    void _updateBooks(Versification *v11n);
     void _clearBooks();
+    void _clear();
+
+
 
     void _setCurrentModule(const int moduleID);
 
     void _setTabbedView();
     void _setSubWindowView();
 
-    void _historySetUrl(const QString &url);
     void _showTextRanges(const QString &html, const TextRanges &range, const VerseUrl &url);
+    void _showHtml(const QString &html);
 
-    void _loadBibleList(bool hadBible);
-    void _reloadChapter(bool full);
+    void _loadVerseTable(bool hadModule);
+    void _reloadCurrentRange(bool full);
+    void _reloadIf(const VerseUrl &url);
 
-    void _reloadBible();
-    void _reShowCurrentRange();
     void _newSubWindowIfEmpty();
+
+    void _needDictionaryWindow();
+    void _needBibleWindow();
+    void _needWebWindow();
+
 
     void _searchInText(SearchResult *result);
     void _searchInText();
 
+    void _showDictEntry(const QString &key, int moduleID);
+
+    void _setCurrentVerseTableID(const int verseTableID);
+
+    void _moduleChanged(const int moduleID);
+
 public slots:
-    /**
-      * Show a chapter in current SubWindow.
-      */
-    void showChapter(const int moduleID, const int bookID, const int chapterID);
+
     void previousChapter();
     void nextChapter();
+
 
     void get(const QString &url);
     void get(const QUrl &url);
     void get(const VerseUrl &url);
 
-    void showNote(const QString &noteID);
+
+    void get(const QString &url, const Actions::OpenLinkModifiers mod);
+    void get(const QUrl &url, const Actions::OpenLinkModifiers mod);
+    void get(const VerseUrl &url, const Actions ::OpenLinkModifiers mod);
+
+    void newGet(const QUrl &url);
 
     void setCurrentBook(const QSet<int> &bookID);
     void setCurrentChapter(const QSet<int> &chapterID);
 
     void reloadActive();
-    /**
-      * Same as reloadChapter(false)
-      */
-    void reloadChapter();
-    void reloadChapter(bool full);
 
     void setTitle(const QString &title);
 
-    void updateChapters(int bookID, Versification *v11n);
-    void clearChapters();
-    void updateBooks(Versification *v11n);
+    void updateChapters(int bookID, QSharedPointer<Versification>v11n);
+    void updateBooks(QSharedPointer<Versification>v11n);
+
     void clearBooks();
+    void clearChapters();
+    void clear();
 
     void setCurrentModule(const int moduleID);
 
@@ -105,21 +124,31 @@ public slots:
     void setSubWindowView();
     void newSubWindowIfEmpty();
 
-    void historySetUrl(const QString &url);
+    void needDictionaryWindow();
+    void needBibleWindow();
+    void needWebWindow();
+
     /**
       * Using showTextRanges there is no need to call historySetUrl seperatly.
       */
     void showTextRanges(const QString &html, const TextRanges &range, const VerseUrl &url);
+    void showDictEntry(const QString &key, int moduleID = -1);
 
-    void loadBibleList(bool hadBible);
+    void showHtml(const QString &html);
 
-    void reloadBible();
-    void reShowCurrentRange();
+    void loadVerseTable(bool hadModule);
+
+    void reloadCurrentRange();
+    void reloadCurrentRange(bool full);
 
     void searchInText(SearchResult *result);
     void searchInText();
 
+    void setCurrentVerseTableID(const int verseTableID);
 
+    void reloadIf(const VerseUrl &url);
+
+    void moduleChanged(const int moduleID);
 };
 
 #endif // ACTIONS_H

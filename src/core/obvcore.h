@@ -21,7 +21,8 @@ enum ModuleClass {
     NoneClass = 0,
     BibleModuleClass = 1,
     DictionaryModuleClass = 2,
-    FolderClass = 3
+    FolderClass = 3,
+    WebPageClass = 4
 };
 
 enum ModuleType {
@@ -32,8 +33,38 @@ enum ModuleType {
     BibleQuoteDictModule = 4,
     TheWordBibleModule = 5,
     FolderModule = 6,
-    SwordBibleModule = 7
+    SwordBibleModule = 7,
+    WebPageModule = 8,
+    WebDictionaryModule = 9
 };
+
+enum DefaultModule {
+    NotADefaultModule = 0,
+    DefaultBibleModule = 1,
+    DefaultStrongDictModule = 2,
+    DefaultGramDictModule = 3,
+    DefaultDictModule = 4,
+    DefaultRMACDictModule = 5
+};
+
+enum ContentType {
+    UnkownContent = 0,
+    BibleContent =  1,
+    BibleOTContent = 2,
+    BibleNTContent = 3,
+    StrongsContent = 4,
+    StrongsHebrewContent = 5,
+    StrongsGreekContent = 6,
+    RMacContent = 7,
+    WordDictionaryContent = 8,
+    DictionaryContent = 9,
+    GramContent = 10
+
+};
+
+static QString strongScheme = "strong:/";
+static QString gramScheme = "gram:/";
+static QString rmacScheme = "rmac:/";
 
 /*  QStringList ModuleTypeNames()
   {
@@ -62,4 +93,5 @@ enum ModuleType {
   }*/
 
 }
+
 #endif //OBVCORE_H

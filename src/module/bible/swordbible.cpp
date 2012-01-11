@@ -15,7 +15,6 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 //Linking against Sword crashes openBibleViewer on close
 SwordBible::SwordBible()
 {
-    m_v11n = NULL;
 
 }
 void SwordBible::setSettings(Settings *set)
@@ -30,13 +29,13 @@ int SwordBible::loadBibleData(const int id, const QString &path)
     DEBUG_FUNC_NAME
     m_moduleID = id;
     m_modulePath = path;
-    m_v11n = new Versification_KJV();
+    m_v11n = QSharedPointer<Versification>(new Versification_KJV());
 
 #ifdef BUILD_WITH_SWORD
     m_library = new SWMgr(new MarkupFilterMgr(FMT_PLAIN));
 
     m_target = m_library->getModule(path.toStdString().c_str());
-    if (!m_target) {
+    if(!m_target) {
         myWarning() << "could not load " << path;
         return 1;
     }
@@ -52,9 +51,9 @@ int SwordBible::readBook(const int id)
     return 0;
 }
 
-QString SwordBible::readInfo(QFile &file)
+MetaInfo SwordBible::readInfo(QFile &file)
 {
-    return "";
+    return MetaInfo();
 }
 
 
@@ -115,13 +114,13 @@ TextRange SwordBible::rawTextRange(int bookID, int chapterID, int startVerse, in
     TextRange ret;
 #ifdef BUILD_WITH_SWORD
     VerseKey mykey;
-    QString b = m_v11n->bookName(bookID,true) + " " + QString::number(chapterID+1)+":"+QString::number(startVerse+1);
+    QString b = m_v11n->bookName(bookID, true) + " " + QString::number(chapterID + 1) + ":" + QString::number(startVerse + 1);
     mykey = b.toStdString().c_str();
 
-    int v=startVerse;
-    for (; v < endVerse; mykey++) {
+    int v = startVerse;
+    for(; v < endVerse; mykey++) {
         m_target->setKey(mykey);
-        Verse verse(v,QString::fromLocal8Bit(m_target->RenderText()));
+        Verse verse(v, QString::fromLocal8Bit(m_target->RenderText()));
         ret.addVerse(verse);
         v++;
     }
@@ -139,7 +138,7 @@ std::pair<int, int> SwordBible::minMaxVerse(int bookID, int chapterID)
     ret.second = m_v11n->maxVerse().value(bookID).at(chapterID);
     return ret;
 }
-Versification *SwordBible::versification() const
+QSharedPointer<Versification> SwordBible::versification() const
 {
     return m_v11n;
 }

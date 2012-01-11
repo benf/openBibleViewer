@@ -19,13 +19,10 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 Settings::Settings()
 {
     homePath = "";
-    defaultVersification = NULL;
 }
 Settings::~Settings()
 {
-    //todo: memory leak
-    /*if(defaultVersification != NULL)
-        delete defaultVersification;*/
+    defaultVersification.clear();
 }
 
 
@@ -34,12 +31,20 @@ ModuleSettings * Settings::getModuleSettings(int moduleID) const
     if(m_moduleSettings.contains(moduleID)) {
         return m_moduleSettings.value(moduleID);
     } else {
+        myWarning() << "no modulesettings found " << m_moduleSettings.keys() << moduleID;
         return NULL;
     }
 }
-/**
-  Replace homePath and settingsPath to make it more portable.
-  */
+QSharedPointer<Versification> Settings::getV11N(const int moduleID) const
+{
+    ModuleSettings *set = getModuleSettings(moduleID);
+    if(!set)
+        return defaultVersification;
+    QSharedPointer<Versification> v11n = set->getV11n();
+    if(!v11n)
+        return defaultVersification;
+    return v11n;
+}
 QString Settings::savableUrl(QString url) const
 {
     if(url.startsWith(homePath)) {
@@ -54,9 +59,7 @@ QString Settings::savableUrl(QString url) const
     }
     return url;
 }
-/**
-  Recover Urls which were saved with savableUrl().
-  */
+
 QString Settings::recoverUrl(QString url) const
 {
     url = QUrl::fromPercentEncoding(url.toLocal8Bit());
@@ -70,23 +73,23 @@ QString Settings::recoverUrl(QString url) const
     }
     return url;
 }
-/**
- * Generate a hash from a string
- */
+
 QString Settings::hash(const QString &path) const
 {
     QCryptographicHash hash(QCryptographicHash::Md5);
     hash.addData(savableUrl(path).toLocal8Bit());
     return QString(hash.result().toHex());
 }
+
 QString Settings::v11nFile(const QString &path) const
 {
     return homePath + "v11n/" + hash(path) + "/v11n.ini";
 }
+
 int Settings::newModuleID() const
 {
     int max = 0;
-    QHash<int, ModuleSettings *>::const_iterator i;
+    QMap<int, ModuleSettings *>::const_iterator i;
     for(i = m_moduleSettings.constBegin(); i != m_moduleSettings.constEnd(); ++i) {
         if(i.key() > max) {
             max = i.key();

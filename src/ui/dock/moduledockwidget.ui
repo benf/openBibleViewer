@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>177</width>
+    <width>270</width>
     <height>300</height>
    </rect>
   </property>
@@ -37,10 +37,21 @@
   <widget class="QWidget" name="dockWidgetContents">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QLineEdit" name="lineEdit_filter"/>
+     <widget class="QLineEdit" name="lineEdit_filter">
+      <property name="placeholderText">
+       <string>Filter</string>
+      </property>
+     </widget>
     </item>
     <item>
-     <widget class="QTreeView" name="treeView_module"/>
+     <widget class="QTreeView" name="treeView_module">
+      <property name="contextMenuPolicy">
+       <enum>Qt::CustomContextMenu</enum>
+      </property>
+      <property name="editTriggers">
+       <set>QAbstractItemView::EditKeyPressed</set>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>

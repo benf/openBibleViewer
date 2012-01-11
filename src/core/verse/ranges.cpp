@@ -12,7 +12,7 @@ You should have received a copy of the GNU General Public License along with
 this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "ranges.h"
-
+#include "src/core/dbghelper.h"
 Ranges::Ranges()
 {
 }
@@ -27,4 +27,16 @@ void Ranges::addRanges(Ranges ranges)
 QList<Range> Ranges::getList() const
 {
     return m_ranges;
+}
+
+void  Ranges::setSource(const VerseUrl &source)
+{
+    DEBUG_FUNC_NAME;
+    myDebug() << source.toString();
+    m_source = source;
+}
+
+VerseUrl Ranges::source() const
+{
+    return m_source;
 }

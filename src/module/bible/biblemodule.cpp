@@ -14,40 +14,32 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "biblemodule.h"
 BibleModule::BibleModule()
 {
-    m_versification = NULL;
 }
 BibleModule::~BibleModule()
 {
-    if(m_versification != NULL) {
-        delete m_versification;
-        m_versification = NULL;
-    }
+    DEBUG_FUNC_NAME;
+    m_versification.clear();
 }
 
 void BibleModule::setSettings(Settings *settings)
 {
-    //DEBUG_FUNC_NAME
     m_settings = settings;
 }
-Versification* BibleModule::versification() const
+QSharedPointer<Versification> BibleModule::versification() const
 {
     return m_versification;
-}
-int BibleModule::readBook(const int /*id*/)
-{
-    myWarning() << "calling BibleModule";
-    return 0;
 }
 
 int BibleModule::loadBibleData(const int /*bibleID*/, const QString &/*path*/)
 {
     myWarning() << "calling BibleModule";
+    return -1;
 }
 
-QString BibleModule::readInfo(QFile &/*file*/)
+MetaInfo BibleModule::readInfo(QFile &/*file*/)
 {
     myWarning() << "calling BibleModule";
-    return "";
+    return MetaInfo();
 }
 
 void BibleModule::search(const SearchQuery &/*query*/, SearchResult */*res*/) const
@@ -94,4 +86,13 @@ std::pair<int, int> BibleModule::minMaxVerse(int /*bookID*/, int /*chapterID*/)
 {
     myWarning() << "calling BibleModule";
     return std::pair<int, int>();
+}
+
+void BibleModule::clear()
+{
+    myWarning() << "calling BibleModule";
+}
+void BibleModule::clearData()
+{
+    myWarning() << "calling BibleModule";
 }

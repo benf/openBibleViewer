@@ -19,17 +19,19 @@ class Book
 {
 public:
     Book();
+    Book(const int bookID);
     int size() const;
     void clear();
-    void addChapter(const int chapterID, const Chapter &c);
+    void addChapter(const Chapter &c);
+
     bool hasChapter(const int chapterID) const;
     Chapter getChapter(const int chapterID);
     void setID(const int id);
     int bookID() const;
-    QMap<int, Chapter> data() const;
+    QHash<int, Chapter> data() const;
 private:
     int m_id;
-    QMap<int, Chapter> m_chapters;
+    QHash<int, Chapter> m_chapters;
 };
 
 #endif // BOOK_H

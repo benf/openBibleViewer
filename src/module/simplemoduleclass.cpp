@@ -32,7 +32,7 @@ void SimpleModuleClass::setNotes(Notes *notes)
     m_notes = notes;
 }
 
-void SimpleModuleClass::setModuleMap(ModuleMap *map)
+void SimpleModuleClass::setModuleMap(QSharedPointer<ModuleMap> map)
 {
     m_map = map;
 }
@@ -49,26 +49,26 @@ int SimpleModuleClass::moduleID() const
 
 void SimpleModuleClass::setModuleID(const int moduleID)
 {
-    //myDebug() << "new moduleID = " << moduleID;
     m_moduleID = moduleID;
 }
 
 QString SimpleModuleClass::moduleTitle() const
 {
-    return QString();
+    return m_settings->getModuleSettings(m_moduleID)->name(false);
 }
 
 QString SimpleModuleClass::moduleShortTitle() const
 {
-    return QString();
+    return m_settings->getModuleSettings(m_moduleID)->name(true);
 }
 
 QString SimpleModuleClass::moduleUID() const
 {
-    return QString();
+    return m_settings->getModuleSettings(m_moduleID)->moduleUID;
 }
 
 OBVCore::ModuleType SimpleModuleClass::moduleType() const
 {
     return m_moduleType;
 }
+

@@ -14,7 +14,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "biblequote-dict.h"
 #include "config.h"
 #include "CLucene.h"
-#include "CLucene/_clucene-config.h"
+#include "CLucene/clucene-config.h"
 
 using namespace lucene::analysis;
 using namespace lucene::index;
@@ -26,41 +26,34 @@ BibleQuoteDict::BibleQuoteDict()
 {
 }
 
-void BibleQuoteDict::setSettings(Settings *set)
-{
-    m_settings = set;
-}
-void BibleQuoteDict::setID(const int id, const QString &path)
-{
-    m_moduleID = id;
-    m_modulePath = path;
-}
 
 /**
   Reads the ini file and returns the dictionary name.
   */
-QString BibleQuoteDict::readInfo(QFile &file)
+MetaInfo BibleQuoteDict::readInfo(QFile &file)
 {
     //todo: use module default encoding
+    //m_settings->getModuleSettings(m_moduleID)->encoding;
     const QString encoding = m_settings->encoding;
     QTextCodec *codec = QTextCodec::codecForName(encoding.toStdString().c_str());
     QTextDecoder *decoder = codec->makeDecoder();
     QByteArray byteline = file.readLine();
     QString line = decoder->toUnicode(byteline);
     file.close();
-    return line.simplified();
+    MetaInfo info;
+    info.setName(line.simplified());
+    return info;
 }
-QString BibleQuoteDict::readInfo(const QString &fileName)
+MetaInfo BibleQuoteDict::readInfo(const QString &fileName)
 {
     QFile file(fileName);
     if(!file.open(QIODevice::ReadOnly))
-        return "";
+        return MetaInfo();
     return readInfo(file);
 }
 
 bool BibleQuoteDict::hasIndex()
 {
-    DEBUG_FUNC_NAME
     QDir d;
     if(!d.exists(m_settings->homePath + "index")) {
         return false;
@@ -127,7 +120,7 @@ int BibleQuoteDict::buildIndex()
     }
     writer = new IndexWriter(index.toStdString().c_str() , &an, true);
 
-    writer->setMaxFieldLength(0x7FFFFFFFL);
+    //writer->setMaxFieldLength(0x7FFFFFFFL);
     writer->setUseCompoundFile(false);
 
     //index
@@ -150,7 +143,7 @@ int BibleQuoteDict::buildIndex()
 
         indexdoc.clear();
 
-#ifdef _USE_WSTRING
+#ifdef OBV_USE_WSTRING
         indexdoc.add(*_CLNEW Field(_T("key"), key.toStdWString().c_str(), Field::STORE_YES |  Field::INDEX_TOKENIZED));
         indexdoc.add(*_CLNEW Field(_T("content"), data.toStdWString().c_str(), Field::STORE_YES |  Field::INDEX_TOKENIZED));
 #else
@@ -165,7 +158,7 @@ int BibleQuoteDict::buildIndex()
     writer->optimize();
 
     writer->close();
-    delete writer;
+    _CLLDELETE(writer);
     return 0;
 }
 
@@ -185,7 +178,7 @@ QString BibleQuoteDict::getEntry(const QString &key)
     IndexReader* reader = IndexReader::open(index.toStdString().c_str());
     IndexSearcher s(reader);
     //todo: or use querytext and as the field content
-#ifdef _USE_WSTRING
+#ifdef OBV_USE_WSTRING
     Query* q = QueryParser::parse(queryText.toStdWString().c_str(), _T("content"), &analyzer);
 #else
     Query* q = QueryParser::parse(reinterpret_cast<const wchar_t *>(queryText.utf16()), _T("content"), &analyzer);
@@ -198,7 +191,7 @@ QString BibleQuoteDict::getEntry(const QString &key)
             ret.append("<hr /> ");
 
 
-#ifdef _USE_WSTRING
+#ifdef OBV_USE_WSTRING
         ret.append(QString::fromWCharArray(doc->get(_T("content"))));
 #else
         ret.append(QString::fromUtf16((const ushort*)doc->get(_T("content"))));
@@ -214,16 +207,18 @@ QStringList BibleQuoteDict::getAllKeys()
     const QString index = indexPath();
     IndexReader* reader = IndexReader::open(index.toStdString().c_str());
     QStringList ret;
-    for(size_t i = 0; i < reader->numDocs(); i++) {
-        Document* doc = reader->document(i);
-#ifdef _USE_WSTRING
-        ret.append(QString::fromWCharArray(doc->get(_T("key"))));
+    for(int32_t i = 0; i < reader->numDocs(); i++) {
+        Document doc;
+        reader->document(i, doc);
+#ifdef OBV_USE_WSTRING
+        ret.append(QString::fromWCharArray(doc.get(_T("key"))));
 #else
-        ret.append(QString::fromUtf16((const ushort*)doc->get(_T("key"))));
+        ret.append(QString::fromUtf16((const ushort*)doc.get(_T("key"))));
 #endif
     }
     return ret;
 }
+
 QString BibleQuoteDict::indexPath() const
 {
     return m_settings->homePath + "cache/" + m_settings->hash(m_modulePath);

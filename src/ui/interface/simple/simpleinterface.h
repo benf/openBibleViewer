@@ -21,6 +21,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "src/ui/dock/moduledockwidget.h"
 #include "src/ui/dock/bookdockwidget.h"
 #include "src/ui/dock/searchresultdockwidget.h"
+#include "src/ui/webview.h"
 namespace Ui
 {
 class SimpleInterface;
@@ -33,7 +34,8 @@ public slots:
     void settingsChanged(Settings oldSettings, Settings newSettings, bool modifedModuleSettings);
 private slots:
     void pharseUrl(QUrl url);
-    void pharseUrl(QString url);
+    void pharseUrl(const QString &url);
+    void pharseUrl(const VerseUrl &url);
     void showText(const QString &text);
     void zoomIn();
     void zoomOut();
@@ -54,24 +56,16 @@ public:
     bool hasToolBar();
     QList<QToolBar*> toolBars();
 
+    QString name() const;
+
 protected:
     void changeEvent(QEvent *e);
     bool eventFilter(QObject *obj, QEvent *ev);
-signals:
-    void get(QString);
-    void reloadInterface();
 private:
     Ui::SimpleInterface *ui;
+    WebView *m_view;
     void setTitle(const QString &title);
-    void setChapters(const QStringList &chapters);
-    void setBooks(const QHash<int, QString> &books);
-    void setCurrentBook(const int bookID);
-    void setCurrentChapter(const int chapterID);
-    void readBook(const int id);
-    void readBookByID(int id);
 
-    void readChapter(const int id);
-    void showChapter(int chapterID, int verseID);
     void nextChapter();
     void previousChapter();
     ModuleDockWidget *m_moduleDockWidget;
@@ -83,6 +77,15 @@ private:
     QAction *m_actionZoomIn;
     QAction *m_actionZoomOut;
     QAction *m_actionModule;
+
+    VerseModule *m_module;
+
+    TextRanges m_lastTextRanges;
+    VerseUrl m_lastUrl;
+    VerseUrl m_url;
+
+    void showRanges(const Ranges &ranges, const VerseUrl &url);
+    void showTextRanges(const QString &html, const TextRanges &range, const VerseUrl &url);
 };
 
 #endif // SIMPLEINTERFACE_H

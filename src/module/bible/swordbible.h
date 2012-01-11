@@ -31,9 +31,10 @@ class SwordBible : public BibleModule
 {
 public:
     SwordBible();
+
     int loadBibleData(const int moduleID, const QString &path);
     void setSettings(Settings *settings);
-    QString readInfo(QFile &file);
+    MetaInfo readInfo(QFile &file);
     int readBook(const int id);
 
     TextRange rawTextRange(int bookID, int chapterID, int startVerse, int endVerse);
@@ -47,14 +48,14 @@ public:
     QString modulePath() const;
     QString moduleName(bool preferShortName = false) const;
 
-    Versification *versification() const;
+    QSharedPointer<Versification> versification() const;
     QString uid() const;
 private:
     int m_moduleID;
     QString m_modulePath;
     QString indexPath() const;
 
-    Versification *m_v11n;
+    QSharedPointer<Versification> m_v11n;
 #ifdef BUILD_WITH_SWORD
     SWModule *m_target;
     SWMgr *m_library;

@@ -16,14 +16,16 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "src/core/xbelreader.h"
 #include "src/core/xbelwriter.h"
 #include "src/core/dbghelper.h"
-#include "src/core/urlconverter.h"
+#include "src/core/link/urlconverter.h"
 #include "src/ui/dialog/biblepassagedialog.h"
 #include <QtGui/QClipboard>
 #include <QtGui/QMessageBox>
 #include <QtGui/QTreeWidgetItem>
 #include <QtGui/QMenu>
 #include <QtCore/QMimeData>
+#include <QtCore/QPointer>
 #include "src/core/obvcore.h"
+#include "src/core/verse/reftext.h"
 BookmarksDockWidget::BookmarksDockWidget(QWidget *parent) :
     DockWidget(parent),
     ui(new Ui::BookmarksDockWidget)
@@ -50,7 +52,7 @@ int BookmarksDockWidget::init()
         return 1;
     return 0;
 }
-void BookmarksDockWidget::newBookmark(VerseSelection selection)
+void BookmarksDockWidget::newBookmark(VerseSelection selection, QSharedPointer<Versification> v11n)
 {
     QTreeWidgetItem *bookmark = new QTreeWidgetItem();
     bookmark->setFlags(bookmark->flags() | Qt::ItemIsEditable);
@@ -58,8 +60,9 @@ void BookmarksDockWidget::newBookmark(VerseSelection selection)
     QStyle *style = ui->treeWidget_bookmarks->style();
     bookmarkIcon.addPixmap(style->standardPixmap(QStyle::SP_FileLinkIcon));
     bookmark->setIcon(0, bookmarkIcon);
+
     bookmark->setText(0,
-                      m_moduleManager->verseModule()->versification()->bookName(selection.bookID) +
+                      v11n->bookName(selection.bookID) +
                       " " +
                       QString::number(selection.startChapterID + 1) +
                       "," +
@@ -75,11 +78,10 @@ void BookmarksDockWidget::newBookmark(VerseSelection selection)
 
     UrlConverter urlConverter(UrlConverter::InterfaceUrl, UrlConverter::PersistentUrl, url);
     urlConverter.setSettings(m_settings);
-    urlConverter.setModuleMap(m_moduleManager->m_moduleMap);
-    urlConverter.setV11n(m_moduleManager->verseModule()->versification());
+    urlConverter.setModuleMap(m_moduleManager->m_moduleMap.data());
+    urlConverter.setV11n(v11n);
 
     const VerseUrl newUrl = urlConverter.convert();
-    //myDebug() << "new url = " << newUrl.toString();
     bookmark->setText(1, newUrl.toString());
 
     bookmark->setData(0, Qt::UserRole, "bookmark");
@@ -96,9 +98,8 @@ void BookmarksDockWidget::saveBookmarks(void)
     if(!file.open(QFile::WriteOnly | QFile::Text))
         return;
     XbelWriter writer(ui->treeWidget_bookmarks);
-    if(writer.writeFile(&file)) {
-        //statusBar()->showMessage(tr("Bookmarks saved"), 5000);
-    }
+    writer.writeFile(&file);
+    file.close();
 }
 void BookmarksDockWidget::newBookmarksFolder(void)
 {
@@ -147,6 +148,7 @@ void BookmarksDockWidget::bookmarksContextMenu()
     contextMenu->addAction(actionRemove);
 
     contextMenu->exec(QCursor::pos());
+    delete contextMenu;
 }
 void BookmarksDockWidget::removeBookmark()
 {
@@ -168,16 +170,16 @@ void BookmarksDockWidget::editBookmark()
 
     UrlConverter urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, url);
     urlConverter.setSettings(m_settings);
-    urlConverter.setModuleMap(m_moduleManager->m_moduleMap);
-    urlConverter.setV11n(m_moduleManager->verseModule()->versification());
+    urlConverter.setModuleMap(m_moduleManager->m_moduleMap.data());
     VerseUrl newUrl = urlConverter.convert();
 
-    BiblePassageDialog *passageDialog = new  BiblePassageDialog(this);
+    QPointer<BiblePassageDialog> passageDialog = new BiblePassageDialog(this);
     connect(passageDialog, SIGNAL(updated(VerseUrl)), this, SLOT(updateBookmarkLink(VerseUrl)));
     setAll(passageDialog);
     passageDialog->init();
     passageDialog->frame()->setVerseUrl(newUrl);
     passageDialog->exec();
+    delete passageDialog;
 }
 void BookmarksDockWidget::bookmarksGo()
 {
@@ -195,7 +197,7 @@ void BookmarksDockWidget::bookmarksGo(QTreeWidgetItem * item)
 {
     if(m_settings->onClickBookmarkGo == true) {
         const QString pos = item->text(1);
-                   /* QMessageBox::critical(0, tr("Error"), tr("This Bookmark is invalid."));*/
+        /* QMessageBox::critical(0, tr("Error"), tr("This Bookmark is invalid."));*/
         if(!pos.isEmpty()) {
             internalOpenPos(pos);
         }
@@ -210,7 +212,7 @@ int BookmarksDockWidget::internalOpenPos(const QString &pos)
 
     UrlConverter urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, url);
     urlConverter.setSettings(m_settings);
-    urlConverter.setModuleMap(m_moduleManager->m_moduleMap);
+    urlConverter.setModuleMap(m_moduleManager->m_moduleMap.data());
     VerseUrl newUrl = urlConverter.convert();
     newUrl.setOpenToTransformation(true);
 

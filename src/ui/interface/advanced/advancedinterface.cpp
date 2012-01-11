@@ -13,7 +13,8 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "advancedinterface.h"
 #include "ui_advancedinterface.h"
-#include "src/core/biblelink.h"
+#include "src/core/link/biblelink.h"
+#include "src/module/bible/biblequote.h"
 
 AdvancedInterface::AdvancedInterface(QWidget *parent) :
     Interface(parent),
@@ -24,13 +25,7 @@ AdvancedInterface::AdvancedInterface(QWidget *parent) :
 
 AdvancedInterface::~AdvancedInterface()
 {
-    DEBUG_FUNC_NAME;
-
-    if(m_moduledisplaysettings != NULL) {
-        delete m_moduledisplaysettings;
-        m_moduledisplaysettings = 0;
-    }
-
+    //DEBUG_FUNC_NAME;
     if(ui != NULL) {
         delete ui;
         ui = 0;
@@ -39,24 +34,18 @@ AdvancedInterface::~AdvancedInterface()
 
 void AdvancedInterface::init()
 {
-    DEBUG_FUNC_NAME
-    m_moduledisplaysettings = new ModuleDisplaySettings();
-    m_moduledisplaysettings->setShowMarks(true);
-    m_moduledisplaysettings->setShowNotes(true);
-    m_moduledisplaysettings->setLoadNotes(true);
+    //DEBUG_FUNC_NAME
+    m_moduleManager->newDisplaySettings();
+    m_moduleManager->moduleDisplaySetings()->setShowMarks(true);
+    m_moduleManager->moduleDisplaySetings()->setShowNotes(true);
+    m_moduleManager->moduleDisplaySetings()->setLoadNotes(true);
 
-    connect(m_actions, SIGNAL(_get(QString)), this, SLOT(pharseUrl(QString)));
+    connect(m_actions, SIGNAL(_get(QString,Actions::OpenLinkModifiers)), this, SLOT(pharseUrl(QString,Actions::OpenLinkModifiers)));
 
-    m_moduleManager->setModuleDisplaySettings(m_moduledisplaysettings);
 
     m_api = new Api(this);
     setAll(m_api);
     m_api->init();
-
-    m_bibleManager = new BibleManager(this);
-    setAll(m_bibleManager);
-    m_bibleManager->setWidget(this->parentWidget());
-    m_bibleManager->init();
 
     m_notesManager = new NotesManager(this);
     m_notesManager->setWidget(this->parentWidget());
@@ -70,22 +59,38 @@ void AdvancedInterface::init()
     setAll(m_windowManager);
     m_windowManager->setMdiArea(ui->mdiArea);
     m_windowManager->setApi(m_api);
-    m_windowManager->setBibleManager(m_bibleManager);
     m_windowManager->setNotesManager(m_notesManager);
     m_windowManager->setBookmarksManager(m_bookmarksManager);
 
     m_windowManager->init();
 
+    m_bibleManager = new BibleManager(this);
+    setAll(m_bibleManager);
+    m_bibleManager->setWidget(this->parentWidget());
+    m_bibleManager->setWindowManager(m_windowManager);
+    m_bibleManager->init();
+
+    m_dictionaryManager = new DictionaryManager(this, this->parentWidget());
+    setAll(m_dictionaryManager);
+    m_dictionaryManager->setWindowManager(m_windowManager);
+
+
     m_searchManager = new SearchManager(this);
     setAll(m_searchManager);
-    m_searchManager->init();
     m_searchManager->setWindowManager(m_windowManager);
     m_searchManager->setWidget(this->parentWidget());
+    m_searchManager->init();
+
+    m_webPageManager = new WebPageManager();
+    setAll(m_webPageManager);
+    m_webPageManager->setWindowManager(m_windowManager);
 
 
-
-    if(m_settings->session.getData("windowUrls").toStringList().size() == 0)
+    m_settings->session.file()->beginGroup(m_settings->session.id() + "/windows/");
+    if(m_settings->session.file()->childGroups().size() == 0)
         QTimer::singleShot(10, m_windowManager, SLOT(newSubWindow()));
+    m_settings->session.file()->endGroup();
+
     connect(m_actions, SIGNAL(_setTitle(QString)), this , SLOT(setTitle(QString)));
     connect(m_actions, SIGNAL(_setTabbedView()), this, SLOT(setTabbedView()));
     connect(m_actions, SIGNAL(_setSubWindowView()), this, SLOT(setSubWindowView()));
@@ -96,11 +101,7 @@ void AdvancedInterface::createDocks()
     m_notesManager->createDocks();
     m_searchManager->createDocks();
     m_bookmarksManager->createDocks();
-
-    m_dictionaryDockWidget = new DictionaryDockWidget(this->parentWidget());
-    setAll(m_dictionaryDockWidget);
-    m_dictionaryDockWidget->init();
-    m_dictionaryDockWidget->hide();
+    m_dictionaryManager->createDocks();
 }
 void AdvancedInterface::createMenu()
 {
@@ -109,53 +110,49 @@ void AdvancedInterface::createMenu()
 
 QHash<DockWidget*, Qt::DockWidgetArea> AdvancedInterface::docks()
 {
-    DEBUG_FUNC_NAME
+    //DEBUG_FUNC_NAME
     QHash<DockWidget *, Qt::DockWidgetArea> ret;
     ret.unite(m_bibleManager->docks());
     ret.unite(m_notesManager->docks());
     ret.unite(m_searchManager->docks());
     ret.unite(m_bookmarksManager->docks());
-    ret.insert(m_dictionaryDockWidget, Qt::BottomDockWidgetArea);
+    ret.unite(m_dictionaryManager->docks());
     return ret;
 }
 
-void AdvancedInterface::pharseUrl(QUrl url)
+void AdvancedInterface::pharseUrl(QString url, const Actions::OpenLinkModifiers mod)
 {
-    DEBUG_FUNC_NAME
-    pharseUrl(url.toString());
-}
-void AdvancedInterface::pharseUrl(QString url)
-{
-    DEBUG_FUNC_NAME
-
-    QString url_backup = url;
+    //DEBUG_FUNC_NAME
     //setEnableReload(false);
     myDebug() << "url = " << url;
 
     const QString bible = "verse:/";
-    const QString strong = "strong://";
-    const QString gram = "gram://";
+
+    const QString dict = "dict:/";
+
     const QString http = "http://";
     const QString bq = "go";
     const QString anchor = "#";
     const QString note = "note://";
-    const QString persistent = "persistent:";
+    const QString webPage = "webpage:/";
 
     if(url.startsWith(bible)) {
-        m_bibleManager->pharseUrl(url);
-    } else if(url.startsWith(strong)) {
-        //strong://strongID
-        url = url.remove(0, strong.size());
-        m_dictionaryDockWidget->showEntry(url);
-    } else if(url.startsWith(gram)) {
-        //gram://strongID
-        url = url.remove(0, gram.size());
-        m_dictionaryDockWidget->showEntry(url);
+        m_bibleManager->pharseUrl(url, mod);
+    } else if(url.startsWith(OBVCore::strongScheme)) {
+        m_dictionaryManager->pharseUrl(url, mod);
+    } else if(url.startsWith(OBVCore::rmacScheme)) {
+        m_dictionaryManager->pharseUrl(url, mod);
+    } else if(url.startsWith(dict)) {
+        m_dictionaryManager->pharseUrl(url, mod);
+    } else if(url.startsWith(OBVCore::rmacScheme)) {
+        m_dictionaryManager->pharseUrl(url, mod);
+    } else if(url.startsWith(webPage)) {
+        m_webPageManager->pharseUrl(url);
     } else if(url.startsWith(http)) {
         //its a web link
         QDesktopServices::openUrl(url);
     } else if(url.startsWith(bq)) {
-        m_bibleManager->pharseUrl(url);
+        m_bibleManager->pharseUrl(url, mod);
     } else if(url.startsWith(anchor)) {
         //todo:
         url = url.remove(0, anchor.size());
@@ -172,49 +169,45 @@ void AdvancedInterface::pharseUrl(QString url)
 
         } else {
             if(m_windowManager->activeForm())
-                m_windowManager->activeForm()->scrollToAnchor(url);
+                ((BibleForm *)m_windowManager->activeForm())->m_view->scrollToAnchor(url);
         }
 
     } else if(url.startsWith(note)) {
         url = url.remove(0, note.size());
         m_notesManager->openNote(url);
-    } else if(url.startsWith(persistent)) {
-        url = url.remove(0, persistent.size());
-        /*UrlConverter urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, url);
-        urlConverter.setSettings(m_settings);
-        urlConverter.setModuleMap(m_moduleManager->m_moduleMap);
-        urlConverter.pharse();
-        const QString i = urlConverter.convert();//it now a normal interface url
-        pharseUrl(i);*/
     } else {
         //todo: unterstand links like about:blank#a04
-        if(m_moduleManager->verseModule()->moduleType() == OBVCore::BibleQuoteModule) {
-            bool isInBookPath = false;
-            int b = 0;
-            const QStringList books = ((BibleQuote*)(((Bible*)m_moduleManager->verseModule())->module()))->m_bookPath;
-            myDebug() << books;
-            int i = 0;
-            foreach(const QString & book, books) {
-                if(book.endsWith(url, Qt::CaseInsensitive)) {
-                    b = i;
-                    isInBookPath = true;
-                    myDebug() << b;
-                    break; // todo: check if there are more similiar
+        if(m_windowManager->activeForm() && m_windowManager->activeForm()->type() == Form::BibleForm) {
+            BibleForm *f = (BibleForm*)(m_windowManager->activeForm());
+            if(f->verseModule()->moduleType() == OBVCore::BibleQuoteModule) {
+                bool isInBookPath = false;
+                int b = 0;
+                const QStringList books = ((BibleQuote*)(((Bible*)f->verseModule())->bibleModule()))->booksPath();
+                //myDebug() << books;
+                int i = 0;
+                foreach(const QString & book, books) {
+                    if(book.endsWith(url, Qt::CaseInsensitive)) {
+                        b = i;
+                        isInBookPath = true;
+                        myDebug() << b;
+                        break; // todo: check if there are more similiar
+                    }
+                    i++;
                 }
-                i++;
-            }
-            if(isInBookPath) {
-                VerseUrlRange r;
-                r.setModule(VerseUrlRange::LoadCurrentModule);
-                r.setBook(b);
-                r.setChapter(VerseUrlRange::LoadFirstChapter);
-                r.setWholeChapter();
-                VerseUrl url(r);
-                m_actions->get(url);
+                if(isInBookPath) {
+                    VerseUrlRange r;
+                    r.setModule(VerseUrlRange::LoadCurrentModule);
+                    r.setBook(b);
+                    r.setChapter(VerseUrlRange::LoadFirstChapter);
+                    r.setWholeChapter();
+                    VerseUrl url(r);
+                    m_actions->get(url);
+                }
             }
         } else {
-            if(m_windowManager->activeForm())
-                m_windowManager->activeForm()->evaluateJavaScript(url);
+            //todo: not only bibleform
+            if(m_windowManager->activeForm() && m_windowManager->activeForm()->type() == Form::BibleForm)
+                ((BibleForm*)m_windowManager->activeForm())->evaluateJavaScript(url);
         }
     }
     //setEnableReload(true);
@@ -244,7 +237,7 @@ void AdvancedInterface::restoreSession()
 
 void AdvancedInterface::settingsChanged(Settings oldSettings, Settings newSettings, bool modifedModuleSettings)
 {
-    DEBUG_FUNC_NAME
+    //DEBUG_FUNC_NAME
     //reload books
     bool reloadBibles = false;
     if(oldSettings.encoding != newSettings.encoding) {
@@ -282,12 +275,12 @@ void AdvancedInterface::settingsChanged(Settings oldSettings, Settings newSettin
         //myDebug() << "reload Module";
         m_moduleManager->loadAllModules();
         m_bibleManager->moduleDockWidget()->init();
-        m_dictionaryDockWidget->init();
+        m_dictionaryManager->dictionaryDockWidget()->init();
         //showText(""); //todo:
         //m_moduleManager->bible()->clearSoftCache();
         //if(m_moduleManager->bibleLoaded())
 
-        m_actions->reloadChapter(true);
+        m_actions->reloadCurrentRange(true);
         QApplication::restoreOverrideCursor();
     }
 
@@ -316,9 +309,21 @@ QMenuBar* AdvancedInterface::menuBar()
     QMenu *menuFile = new QMenu(tr("File"), bar);
 
     //New Sub Window
-    QAction *actionNewSubWindow = new QAction(QIcon::fromTheme("tab-new", QIcon(":/icons/16x16/tab-new.png")), tr("New SubWindow"), menuFile);
-    connect(actionNewSubWindow, SIGNAL(triggered()), m_windowManager, SLOT(newSubWindow()));
-    actionNewSubWindow->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_T));//using const KeySequence on KDE will be Ctrl+Shift+N
+    QMenu *menuNewSubWindow = new QMenu(tr("New Subwindow"), menuFile);
+
+    QAction *actionNewBibleSubWindow = new QAction(QIcon::fromTheme("tab-new", QIcon(":/icons/16x16/tab-new.png")), tr("New Bible Window"), menuNewSubWindow);
+    connect(actionNewBibleSubWindow, SIGNAL(triggered()), m_windowManager, SLOT(newBibleSubWindow()));
+    actionNewBibleSubWindow->setShortcut(QKeySequence(Qt::CTRL + Qt::Key_T));//using const KeySequence on KDE will be Ctrl+Shift+N
+
+    QAction *actionNewWebSubWindow = new QAction(QIcon::fromTheme("tab-new", QIcon(":/icons/16x16/tab-new.png")), tr("New Web Window"), menuNewSubWindow);
+    connect(actionNewWebSubWindow, SIGNAL(triggered()), m_windowManager, SLOT(newWebSubWindow()));
+
+    QAction *actionNewDictionarySubWindow = new QAction(QIcon::fromTheme("tab-new", QIcon(":/icons/16x16/tab-new.png")), tr("New Dictionary Window"), menuNewSubWindow);
+    connect(actionNewDictionarySubWindow, SIGNAL(triggered()), m_windowManager, SLOT(newDictionarySubWindow()));
+
+    menuNewSubWindow->addAction(actionNewBibleSubWindow);
+    menuNewSubWindow->addAction(actionNewWebSubWindow);
+    menuNewSubWindow->addAction(actionNewDictionarySubWindow);
 
     //Close Sub Window
     QAction *actionCloseSubWindow = new QAction(QIcon::fromTheme("tab-close", QIcon(":/icons/16x16/tab-close.png")), tr("Close SubWindow"), menuFile);
@@ -345,7 +350,7 @@ QMenuBar* AdvancedInterface::menuBar()
     connect(actionClose, SIGNAL(triggered()), this->parentWidget(), SLOT(close()));
     actionClose->setShortcut(QKeySequence::Quit);
 
-    menuFile->addAction(actionNewSubWindow);
+    menuFile->addMenu(menuNewSubWindow);
     menuFile->addAction(actionCloseSubWindow);
     menuFile->addSeparator();
     menuFile->addAction(actionSaveAs);
@@ -498,8 +503,8 @@ QMenuBar* AdvancedInterface::menuBar()
 
     QAction *actionStrong = new QAction(tr("Dictionay"), menuDocks);
     actionStrong->setCheckable(true);
-    connect(m_dictionaryDockWidget, SIGNAL(visibilityChanged(bool)), actionStrong, SLOT(setChecked(bool)));
-    connect(actionStrong, SIGNAL(triggered(bool)), m_dictionaryDockWidget, SLOT(setVisible(bool)));
+    connect(m_dictionaryManager->dictionaryDockWidget(), SIGNAL(visibilityChanged(bool)), actionStrong, SLOT(setChecked(bool)));
+    connect(actionStrong, SIGNAL(triggered(bool)), m_dictionaryManager->dictionaryDockWidget(), SLOT(setVisible(bool)));
     actionStrong->setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_D));
 
     QAction *actionBookmarks = new QAction(QIcon::fromTheme("bookmarks-organize", QIcon(":/icons/16x16/bookmarks-organize.png")), tr("Bookmarks"), menuDocks);
@@ -569,11 +574,15 @@ bool AdvancedInterface::hasToolBar()
 }
 void AdvancedInterface::createToolBars()
 {
-    DEBUG_FUNC_NAME
+    //DEBUG_FUNC_NAME
     m_mainBar = new QToolBar(this);
     m_mainBar->setObjectName("mainToolBar");
     m_mainBar->setIconSize(QSize(16, 16));
+#ifdef Q_OS_WIN
+    m_mainBar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+#else
     m_mainBar->setToolButtonStyle(Qt::ToolButtonFollowStyle);
+#endif
     m_mainBar->setWindowTitle(tr("Main Tool Bar"));
 
     m_mainBarActionSearch = new QAction(QIcon::fromTheme("edit-find", QIcon(":/icons/16x16/edit-find.png")), tr("Search"), m_mainBar);
@@ -620,6 +629,7 @@ void AdvancedInterface::createToolBars()
     m_searchBar->setMaximumWidth(250);
 
     QLineEdit *edit = new QLineEdit(m_searchBar);
+    edit->setPlaceholderText(tr("Search"));
     edit->setObjectName("lineEdit");
 
     connect(edit, SIGNAL(returnPressed()), this, SLOT(quick()));
@@ -637,15 +647,50 @@ QList<QToolBar *> AdvancedInterface::toolBars()
 void AdvancedInterface::quick()
 {
     const QString text = ((QLineEdit *) sender())->text();
-    BibleLink link(m_moduleManager->verseModule()->moduleID(), m_moduleManager->verseModule()->versification());
-    if(link.isBibleLink(text)) {
-         m_actions->get(link.getUrl(text));
+
+    if(m_windowManager->activeForm() && m_windowManager->activeForm()->type() == Form::BibleForm) {
+        BibleForm *f = (BibleForm*)(m_windowManager->activeForm());
+        BibleLink link(f->verseModule()->moduleID(), f->verseModule()->versification());
+
+
+        if(link.isBibleLink(text)) {
+            m_actions->get(link.getUrl(text));
+        } else {
+            SearchQuery query;
+            query.searchText = text;
+            query.searchInNotes = true;
+            query.queryType = SearchQuery::Simple;
+            m_searchManager->search(query);
+        }
     } else {
-        SearchQuery query;
-        query.searchText = text;
-        query.searchInNotes = true;
-        query.queryType = SearchQuery::Simple;
-        m_searchManager->search(query);
+        m_windowManager->newBibleSubWindow();
+        int defaultModuleID = -1;
+        QMapIterator<int, ModuleSettings*> i(m_settings->m_moduleSettings);
+        while(i.hasNext()) {
+            i.next();
+            if(i.value()->defaultModule == OBVCore::DefaultBibleModule) {
+                defaultModuleID = i.key();
+                break;
+            }
+
+        }
+        myDebug() << "default" << defaultModuleID;
+        if(defaultModuleID == -1) {
+            QMapIterator<int, Module*> i2(m_moduleManager->m_moduleMap->data);
+            while(i2.hasNext() && defaultModuleID == -1) {
+                i2.next();
+                if(i2.value()->moduleClass() == OBVCore::BibleModuleClass) {
+                    defaultModuleID = i2.key();
+                    break;
+                }
+            }
+        }
+        myDebug() << "some" << defaultModuleID;
+
+        BibleLink link(defaultModuleID, m_settings->getV11N(defaultModuleID));
+        if(link.isBibleLink(text)) {
+            m_actions->get(link.getUrl(text));
+        }
     }
 }
 
@@ -674,16 +719,16 @@ void AdvancedInterface::saveFile(void)
     }
 }
 
-int AdvancedInterface::showAboutDialog(void)
+void AdvancedInterface::showAboutDialog(void)
 {
-    AboutDialog aDialog;
-    aDialog.setWindowTitle(tr("About openBibleViewer"));
-    aDialog.show();
-    aDialog.setText(tr("openBibleViewer <br /> version: %1 build: %2<br /> "
-                       "<a href='http://openbv.uucyc.name/'> Official Website</a> <br />"
-                       "<a href='https://github.com/metaxy/openBibleViewer/issues'>Bug report</a>")
-                    .arg(m_settings->version).arg(m_settings->build));
-    return aDialog.exec();
+    QPointer<AboutDialog> aDialog = new AboutDialog(this);
+    aDialog->setWindowTitle(tr("About openBibleViewer"));
+    aDialog->setText(tr("openBibleViewer <br /> version: %1 build: %2<br /> "
+                        "<a href='http://openbv.uucyc.name/'> Official Website</a> <br />"
+                        "<a href='https://github.com/metaxy/openBibleViewer/issues'>Bug report</a>")
+                     .arg(m_settings->version).arg(m_settings->build));
+    aDialog->exec();
+    delete aDialog;
 }
 
 void AdvancedInterface::showMarkCategories()
@@ -693,11 +738,11 @@ void AdvancedInterface::showMarkCategories()
 
 void AdvancedInterface::showMarkList()
 {
-    //todo: scoped pointer ?
-    MarkList *markList = new MarkList(this);
+    QPointer<MarkList> markList = new MarkList(this);
     setAll(markList);
     markList->init();
-    markList->exec();
+    markList->show();
+
 }
 
 void AdvancedInterface::showNotesEditor()
@@ -749,4 +794,8 @@ void AdvancedInterface::changeEvent(QEvent *e)
     default:
         break;
     }
+}
+QString AdvancedInterface::name() const
+{
+    return "advanced";
 }

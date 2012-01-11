@@ -22,8 +22,11 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "src/ui/dock/moduledockwidget.h"
 
 #include "src/ui/dock/quickjumpdockwidget.h"
-#include "src/core/verse/verseurlrange.h"
+#include "src/core/link/verseurlrange.h"
 #include "src/core/dbghelper.h"
+
+#include "src/ui/interface/advanced/manager/windowmanager.h"
+
 class BibleManager : public QObject, public BasicClass
 {
     Q_OBJECT
@@ -38,29 +41,34 @@ public:
     ModuleDockWidget *moduleDockWidget();
     QuickJumpDockWidget * quickJumpDockWidget();
 
+    void setWindowManager(WindowManager *windowManager);
+
 signals:
 
     void updateChapters();
     void updateBooks();
 
 public slots:
-    void pharseUrl(const QString &url);
-    void pharseUrl(const VerseUrl &url);
+    void pharseUrl(QString url, const Actions::OpenLinkModifiers mod);
+    void pharseUrl(VerseUrl url, const Actions::OpenLinkModifiers mod);
 
     void nextChapter();
     void previousChapter();
     void loadBibleList(bool hadBible);
 
-    void reShowCurrentRange();
-    void reloadBible();
+    void reloadCurrentRange(bool full);
+
+    void setCurrentVerseTableID(const int verseTableID);
+
 private:
-    void showRanges(const Ranges &ranges, const VerseUrl &url);
-    Ranges bibleUrlRangeToRanges(VerseUrlRange r);
+
     QWidget *m_p;
 
     BookDockWidget *m_bookDockWidget;
     ModuleDockWidget *m_moduleDockWidget;
     QuickJumpDockWidget * m_quickJumpDockWidget;
+
+    WindowManager *m_windowManager;
 };
 
 #endif // BIBLEMANAGER_H

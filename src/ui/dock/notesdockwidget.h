@@ -18,8 +18,8 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include <QtCore/QStringList>
 #include "dockwidget.h"
 #include "src/core/verseselection.h"
-#include "src/core/urlconverter.h"
-#include "src/core/simplenotes.h"
+#include "src/core/link/urlconverter.h"
+#include "src/core/notes/simplenotes.h"
 namespace Ui
 {
 class NotesDockWidget;
@@ -42,12 +42,12 @@ private slots:
     void removeNote(QString id , QMap<QString, QString> ref);
 public slots:
     void newNote();
-    void newNoteWithLink(VerseSelection selection);
+    void newNoteWithLink(VerseSelection selection, QSharedPointer<Versification> v11n);
 
-    void newMark(VerseSelection selection, QColor color);
-    void newStyleMark(VerseSelection, QString style);
+    void newMark(VerseSelection selection, QColor color, QSharedPointer<Versification> v11n);
+    void newStyleMark(VerseSelection, QString style, QSharedPointer<Versification> v11n);
     void showNote(const QString &noteID);
-    void removeMark(VerseSelection selection);
+    void removeMark(VerseSelection selection, QSharedPointer<Versification> v11n);
     void saveNote();
 public:
     NotesDockWidget(QWidget *parent = 0);
@@ -56,8 +56,6 @@ public:
 
 protected:
     void changeEvent(QEvent *e);
-signals:
-    void reloadChapter();
 private:
     Ui::NotesDockWidget *ui;
     SimpleNotes *m_simpleNotes;

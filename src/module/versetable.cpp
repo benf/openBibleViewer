@@ -12,11 +12,12 @@ You should have received a copy of the GNU General Public License along with
 this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "versetable.h"
+#include "src/core/dbghelper.h"
+
 VerseTable::VerseTable()
 {
     m_currentModule = 0;
     m_lastTextRanges = NULL;
-    m_lastUrl = NULL;
 }
 VerseTable::~VerseTable()
 {
@@ -32,7 +33,7 @@ VerseTable::~VerseTable()
 
 void VerseTable::setCurrentVerseTableID(const int verseTableID)
 {
-    myDebug() << "before currentModule = " << m_currentModule << " new verseTable = " << verseTableID;
+    //myDebug() << "before currentModule = " << m_currentModule << " new verseTable = " << verseTableID;
     m_currentModule = verseTableID;
     setLastTextRanges(m_lastTextRanges);
 }
@@ -44,10 +45,10 @@ int VerseTable::currentVerseTableID() const
 
 void VerseTable::addModule(VerseModule* m, const QPoint &p)
 {
-    DEBUG_FUNC_NAME;
+    //DEBUG_FUNC_NAME;
     //if it contains already a module with point p
     //then delete the old and insert the new
-    myDebug() << "p = " << p << " m = " << m;
+    //myDebug() << "p = " << p << " m = " << m;
     if(m_points.values().contains(p)) {
         const int id = m_points.key(p, -1);
         if(m_modules.contains(id) && m_modules.value(id) != NULL) {
@@ -83,7 +84,7 @@ VerseModule * VerseTable::verseModule(const int id) const
 }
 void VerseTable::clear()
 {
-    DEBUG_FUNC_NAME
+    //DEBUG_FUNC_NAME
     m_points.clear();
     foreach(VerseModule * b, m_modules) {
         if(b) {
@@ -98,11 +99,11 @@ void VerseTable::clear()
 std::pair<QString, TextRanges> VerseTable::readRanges(const Ranges &ranges) const
 {
     //DEBUG_FUNC_NAME
-    myDebug() << "points = " << m_points << " modules = " << m_modules;
+    //myDebug() << "points = " << m_points << " modules = " << m_modules;
     if(m_modules.size() == 1) {
         std::pair<QString, TextRanges> ret;
         VerseModule *b = m_modules.value(m_currentModule, NULL);
-        myDebug() << b;
+        //myDebug() << b;
         if(b) {
             ret.second = b->readRanges(ranges);
             ret.second.setVerseTableID(0);
@@ -116,7 +117,7 @@ std::pair<QString, TextRanges> VerseTable::readRanges(const Ranges &ranges) cons
                 }
             }
         }
-
+        ret.second.setSource(ranges);
         return ret;
     } else if(m_modules.size() > 1) {
         std::pair<QString, TextRanges> ret;
@@ -128,6 +129,7 @@ std::pair<QString, TextRanges> VerseTable::readRanges(const Ranges &ranges) cons
 
         while(i.hasNext()) {
             i.next();
+            myDebug() << i.value()->moduleID();
             TextRanges r = i.value()->readRanges(ranges, true);
             r.setVerseTableID(i.key());
 
@@ -224,9 +226,11 @@ std::pair<QString, TextRanges> VerseTable::readRanges(const Ranges &ranges) cons
 
         out += "</tbody>\n</table>\n";
         ret.first = out;
+        ret.second.setSource(ranges);
         return ret;
     } else {
         std::pair<QString, TextRanges> ret;
+        ret.second.setSource(ranges);
         return ret;
     }
 }
@@ -259,20 +263,40 @@ bool VerseTable::hasTopBar() const
 }
 void VerseTable::setLastTextRanges(TextRanges *textRanges)
 {
+    //DEBUG_FUNC_NAME;
+    if(textRanges == NULL)
+        return;
+    //myDebug() << textRanges->source().source().toString();
     m_lastTextRanges = textRanges;
     foreach(VerseModule * b, m_modules) {
+        //todo: verseUrl
         b->setLastTextRanges(textRanges);
     }
 }
+void VerseTable::clearData()
+{
+    foreach(VerseModule *m, m_modules) {
+        m->clearData();
+    }
+}
+bool VerseTable::contains(const int moduleID)
+{
+    foreach(VerseModule *m, m_modules) {
+        if(m->moduleID() == moduleID)
+            return true;
+    }
+    return false;
+}
+
 TextRanges *VerseTable::lastTextRanges()
 {
     return m_lastTextRanges;
 }
-void VerseTable::setLastUrl(VerseUrl *verseUrl)
+void VerseTable::setLastUrl(const VerseUrl &verseUrl)
 {
     m_lastUrl = verseUrl;
 }
-VerseUrl *VerseTable::lastVerseUrl()
+VerseUrl VerseTable::lastVerseUrl()
 {
     return m_lastUrl;
 }

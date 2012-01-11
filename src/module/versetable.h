@@ -14,8 +14,8 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #ifndef BIBLELIST_H
 #define BIBLELIST_H
 #include "src/module/versemodule.h"
-#include "src/core/verse/verseurl.h"
-#include "src/core/dbghelper.h"
+#include "src/core/link/verseurl.h"
+
 #include <QtCore/QPoint>
 #include <utility>
 /**
@@ -26,7 +26,7 @@ class VerseTable
 public:
     VerseTable();
     /**
-     * Deletes all bibles of the BibleList
+     * Deletes all bibles of the VerseTable
      */
     ~VerseTable();
 
@@ -51,16 +51,19 @@ public:
     QMap<int, QPoint> m_points;
 
     void setLastTextRanges(TextRanges *textRanges);
-    void setLastUrl(VerseUrl *url);
+    void setLastUrl(const VerseUrl &url);
     TextRanges *lastTextRanges();
-    VerseUrl *lastVerseUrl();
+    VerseUrl lastVerseUrl();
 
+    void clearData();
+
+    bool contains(const int moduleID);
 private:
     inline QString title(VerseModule *module, const QString &active, const int bibleListID) const;
     int countInCol(const int col) const;
     int m_currentModule;
     TextRanges *m_lastTextRanges;
-    VerseUrl *m_lastUrl;
+    VerseUrl m_lastUrl;
 
 };
 

@@ -12,37 +12,33 @@ You should have received a copy of the GNU General Public License along with
 this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "src/module/module.h"
-
-Module::Module(Module *parent)
+#include "src/module/bible/biblequote.h"
+#include "src/module/bible/zefania-bible.h"
+#include "src/module/bible/thewordbible.h"
+#include "src/module/bible/swordbible.h"
+#include "src/module/dictionary/biblequote-dict.h"
+#include "src/module/dictionary/zefania-lex.h"
+#include "src/module/dictionary/webdictionary.h"
+Module::Module(Module *parent) : m_parent(parent)
 {
-    m_bibleModule = NULL;
-    m_zefaniaLex = NULL;
-    m_bibleQuoteDict = NULL;
-    m_parent = parent;
-
     m_moduleClass = OBVCore::NoneClass;
     m_moduleType = OBVCore::NoneType;
+
+    if(m_parent != NULL) {
+        m_parent->append(this);
+    }
 }
 Module::~Module()
 {
-    if(m_bibleModule != NULL) {
-        delete m_bibleModule;
-        m_bibleModule = NULL;
-    }
-    if(m_zefaniaLex != NULL) {
-        delete m_zefaniaLex;
-        m_zefaniaLex = NULL;
-    }
-    if(m_bibleQuoteDict != NULL) {
-        delete m_bibleQuoteDict;
-        m_bibleQuoteDict = NULL;
-    }
+    m_bibleModule.clear();
+    m_dictionaryModule.clear();
 }
 
 void Module::setSettings(Settings *settings)
 {
     m_settings = settings;
 }
+
 Module* Module::parent() const
 {
     return m_parent;
@@ -57,13 +53,13 @@ QString Module::path() const
 {
     return m_path;
 }
-QString Module::title() const
-{
-    return m_title;
-}
 int Module::moduleID() const
 {
     return m_id;
+}
+QString Module::moduleUID() const
+{
+    return m_settings->savableUrl(this->path());
 }
 OBVCore::ModuleClass Module::moduleClass() const
 {
@@ -77,11 +73,6 @@ OBVCore::ModuleType Module::moduleType() const
 void Module::setPath(const QString &path)
 {
     m_path = path;
-}
-
-void Module::setTitle(const QString &title)
-{
-    m_title = title;
 }
 
 void Module::setModuleID(const int moduleID)
@@ -103,7 +94,8 @@ QStringList Module::moduleTypeNames()
 {
     QStringList l;
     l << QT_TRANSLATE_NOOP("Core", "None") << QT_TRANSLATE_NOOP("Core", "BibleQuote") << QT_TRANSLATE_NOOP("Core", "Zefania XML Bible")
-      << QT_TRANSLATE_NOOP("Core", "Zefania Lex Module") << QT_TRANSLATE_NOOP("Core", "BibleQuote Dictionary") << QT_TRANSLATE_NOOP("Core", "The Word Bible");
+      << QT_TRANSLATE_NOOP("Core", "Zefania Lex Module") << QT_TRANSLATE_NOOP("Core", "BibleQuote Dictionary") << QT_TRANSLATE_NOOP("Core", "The Word Bible")
+      << QT_TRANSLATE_NOOP("Core", "Sword Bible") << QT_TRANSLATE_NOOP("Core", "Web Page") << QT_TRANSLATE_NOOP("Core", "Web Dictionary");
     return l;
 }
 
@@ -121,7 +113,41 @@ QString Module::moduleTypeName(OBVCore::ModuleType type)
         return QT_TRANSLATE_NOOP("Core", "BibleQuote Dictionary");
     } else if(type == OBVCore::TheWordBibleModule) {
         return QT_TRANSLATE_NOOP("Core", "The Word Bible");
+    } else if(type == OBVCore::SwordBibleModule) {
+        return QT_TRANSLATE_NOOP("Core", "Sword Bible");
+    } else if(type == OBVCore::WebPageModule) {
+        return QT_TRANSLATE_NOOP("Core", "Web Page");
+    } else if(type == OBVCore::WebDictionaryModule) {
+        return QT_TRANSLATE_NOOP("Core", "Web Dictionary");
     }
     return "";
 }
 
+QSharedPointer<BibleModule> Module::newBibleModule(const OBVCore::ModuleType type)
+{
+    QSharedPointer<BibleModule> ret;
+    if(type == OBVCore::ZefaniaBibleModule) {
+        ret = QSharedPointer<BibleModule>(new ZefaniaBible());
+    } else if(type == OBVCore::TheWordBibleModule) {
+        ret = QSharedPointer<BibleModule>(new TheWordBible());
+    } else if(type == OBVCore::SwordBibleModule) {
+        ret = QSharedPointer<BibleModule>(new SwordBible());
+    } else if(type == OBVCore::BibleQuoteModule) {
+        ret = QSharedPointer<BibleModule>(new BibleQuote());
+    }
+    m_bibleModule = ret.toWeakRef();
+    return ret;
+}
+QSharedPointer<DictionaryModule> Module::newDictionaryModule(const OBVCore::ModuleType type)
+{
+    QSharedPointer<DictionaryModule> ret;
+    if(type == OBVCore::ZefaniaLexModule) {
+        ret = QSharedPointer<DictionaryModule>(new ZefaniaLex());
+    } else if(type == OBVCore::BibleQuoteDictModule) {
+        ret = QSharedPointer<DictionaryModule>(new BibleQuoteDict());
+    } else if(type == OBVCore::WebDictionaryModule) {
+        ret = QSharedPointer<DictionaryModule>(new WebDictionary());
+    }
+    m_dictionaryModule = ret.toWeakRef();
+    return ret;
+}

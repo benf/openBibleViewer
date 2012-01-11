@@ -25,8 +25,6 @@ ModuleModel::ModuleModel(QObject *parent)
 
     m_bibleQuoteIcon = QIcon::fromTheme("text-x-generic", QIcon(":/icons/16x16/text-x-generic.png"));
     m_bibleZefaniaIcon = QIcon::fromTheme("text-xml", QIcon(":/icons/16x16/text-xml.png"));
-
-
 }
 ModuleModel::~ModuleModel()
 {
@@ -43,7 +41,6 @@ void ModuleModel::setSettings(Settings *settings)
 
 void ModuleModel::generate()
 {
-    DEBUG_FUNC_NAME
     QStandardItem *parentItem = m_moduleModel->invisibleRootItem();
 
     ModuleSettings *rootModuleSettings = m_settings->getModuleSettings(-1);//it's the invisble root item
@@ -61,9 +58,10 @@ QStandardItemModel* ModuleModel::itemModel() const
 void ModuleModel::loadModule(QStandardItem *parentItem, ModuleSettings *settings)
 {
     QStandardItem *item = NULL;
+
     if(settings->moduleType == OBVCore::BibleQuoteModule || settings->moduleType == OBVCore::ZefaniaBibleModule || settings->moduleType == OBVCore::TheWordBibleModule || settings->moduleType == OBVCore::SwordBibleModule) {
         item = new QStandardItem;
-        item->setText(settings->moduleName);
+        item->setText(settings->name(false));
         item->setData(QString::number(settings->moduleID));
         item->setToolTip(Module::moduleTypeName(settings->moduleType) + " - " + settings->modulePath + " (" + QString::number(settings->moduleID) + ")");
 
@@ -76,16 +74,29 @@ void ModuleModel::loadModule(QStandardItem *parentItem, ModuleSettings *settings
     } else if(settings->moduleType == OBVCore::ZefaniaLexModule || settings->moduleType == OBVCore::BibleQuoteDictModule) {
         if(m_showAll) {
             item = new QStandardItem;
-            item->setText(settings->moduleName);
+            item->setText(settings->name(false));
             item->setData(QString::number(settings->moduleID));
             item->setIcon(m_bibleZefaniaIcon);
+            item->setToolTip(Module::moduleTypeName(settings->moduleType) + " - " + settings->modulePath + " (" + QString::number(settings->moduleID) + ")");
+            parentItem->appendRow(item);
+        }
+    } else if(settings->moduleType == OBVCore::WebPageModule || settings->moduleType == OBVCore::WebDictionaryModule) {
+        if(m_showAll) {
+            item = new QStandardItem;
+            item->setText(settings->name(false));
+            item->setData(QString::number(settings->moduleID));
+            item->setToolTip(Module::moduleTypeName(settings->moduleType) + " - " + settings->modulePath + " (" + QString::number(settings->moduleID) + ")");
             parentItem->appendRow(item);
         }
     } else if(settings->moduleType == OBVCore::FolderModule) {
         item = new QStandardItem;
-        item->setText(settings->moduleName);
+        item->setText(settings->name(false));
         item->setData(QString::number(settings->moduleID));
         item->setIcon(m_folderIcon);
+        parentItem->appendRow(item);
+    } else {
+        item = new QStandardItem;
+        item->setText(settings->name(false));
         parentItem->appendRow(item);
     }
 

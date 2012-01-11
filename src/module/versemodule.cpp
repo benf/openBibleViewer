@@ -16,9 +16,9 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 
 VerseModule::VerseModule()
 {
-    m_versification = 0;
-    m_lastTextRanges = 0;
+    m_lastTextRanges = NULL;
 }
+
 VerseModule::~VerseModule()
 {
 
@@ -26,38 +26,28 @@ VerseModule::~VerseModule()
 
 void VerseModule::setLastTextRanges(TextRanges *textRanges)
 {
+    //DEBUG_FUNC_NAME;
+    //myDebug() << m_moduleID;
+    //myDebug() << textRanges->source().source().toString();
     m_lastTextRanges = textRanges;
 }
+
 TextRanges *VerseModule::lastTextRanges() const
 {
     return m_lastTextRanges;
 }
 
-Versification *VerseModule::versification() const
+QSharedPointer<Versification> VerseModule::versification() const
 {
     return m_versification;
-}
-TextRanges VerseModule::readRanges(const Ranges &ranges, bool ignoreModuleID)
-{
-    myWarning() << "calling VerseModule";
-    return TextRanges();
-}
-
-TextRange VerseModule::readRange(const Range &range, bool ignoreModuleID)
-{
-    myWarning() << "calling VerseModule";
-    return TextRange();
 }
 
 SearchQuery VerseModule::lastSearchQuery() const
 {
     return m_lastSearchQuery;
 }
-void VerseModule::search(SearchQuery query, SearchResult *result)
+
+void VerseModule::setModuleDisplaySettings(ModuleDisplaySettings *moduleDisplaySettings)
 {
-    myWarning() << "calling VerseModule";
-}
-void VerseModule::setmoduledisplaysettings(ModuleDisplaySettings *moduledisplaysettings)
-{
-    m_moduledisplaysettings = moduledisplaysettings;
+    m_moduleDisplaySettings = moduleDisplaySettings;
 }

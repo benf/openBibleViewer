@@ -28,7 +28,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include <QtXml/QDomAttr>
 #include <QtXml/QtXml>
 
-#include "src/core/verse/verseurl.h"
+#include "src/core/link/verseurl.h"
 #include "src/core/verse/verse.h"
 #include "src/core/verse/chapter.h"
 #include "src/core/verse/versification/versification_zefania.h"
@@ -50,15 +50,16 @@ class ZefaniaBible : public BibleModule
 
 public:
     ZefaniaBible();
+    ~ZefaniaBible();
     int readBook(const int id);
     int loadBibleData(const int id, const QString &path);
 
-    QString readInfo(QFile &file);
+    MetaInfo readInfo(QFile &file);
     /**
       Read the module file and returns the bible name
       \param fileName The fileName of the module.
      */
-    QString readInfo(const QString &fileName);
+    MetaInfo readInfo(const QString &fileName);
 
     void search(const SearchQuery &query, SearchResult *res) const;
     bool hasIndex() const;
@@ -67,50 +68,51 @@ public:
     int moduleID() const;
     QString modulePath() const;
     QString moduleName(bool preferShortName = false) const;
-    Book book() const;
+
     QString uid() const;
     TextRange rawTextRange(int bookID, int chapterID, int startVerse, int endVerse);
     std::pair<int, int> minMaxVerse(int bookID, int chapterID);
 
     void removeHardCache(const QString &path);
+    bool hasHardCache(const QString &path);
+
+    void clear();
+    void clearData();
 private:
     QDomElement* format(QDomElement* e);
-
-    /**
-      * Checks if there are cache files for a given module. If not it returns false.
-      * \param path The path of the module.
-     */
-    bool checkForCacheFiles(const QString &path) const;
-    /**
-      * Reads the entire xml file and if caching is enabled, generates cache file.
-      * \param id The ID of the module(bible).
-      * \param path. Path to the module file.
-      */
-    int loadNoCached(const int id, const QString &path);
-    /**
-      * Load only booknames and not every book and his data
-      */
-    int loadCached(const int id, const QString &path);
-    Book fromHardToSoft(const int id, const QDomNode *ncache);
-
-    QHash<int, Book> m_softCacheData;
-
-    void clearSoftCache();
-    void setSoftCache(const QHash<int, Book >&softCache);
-    void setSoftCache(const int bookID, const Book &b);
-    QHash<int, Book> softCache() const;
-    Book softCache(const int bookID) const;
-    QDomNode readBookFromHardCache(QString path, int bookID);
-
     QString indexPath() const;
 
     int m_bookID;
     int m_moduleID;
     QString m_modulePath;
     QString m_moduleName;
-    Book m_book;
     QString m_uid;
+    Book m_book;
 
+    QXmlStreamReader *m_xml;
+
+    Book readBook();
+    Chapter readChapter();
+    Verse readVerse();
+    MetaInfo readMetaInfo(MetaInfo ret);
+
+    QString pharseStyle();
+    QString pharseNote();
+    QString pharseBr();
+    QString pharseGram();
+    QString pharseSup();
+    QString pharseXRef();
+    QString pharseDiv();
+
+    bool cmp(const QStringRef &r, const QString &s);
+    void getVersification();
+    ModuleSettings *m_set;
+
+    QString getPath();
+    void cache(const Book &b);
+    void generateCache(QList<std::pair<qint64, qint64> > list);
+    QMap<int,QString> m_strongsPrefix;
+    void genStrongsPrefix();
 };
 
 #endif // ZEFANIABIBLE_H

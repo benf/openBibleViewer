@@ -16,10 +16,17 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 ModuleMap::ModuleMap()
 {
 }
+Module* ModuleMap::module(const int id)
+{
+    return data.value(id);
+}
+
 ModuleMap::~ModuleMap()
 {
-    foreach(Module * m, m_map) {
-        if(m != NULL)
+    foreach(Module * m, data) {
+        if(m != NULL) {
             delete m;
+        }
     }
+    data.clear();
 }

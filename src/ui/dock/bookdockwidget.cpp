@@ -15,11 +15,12 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "ui_bookdockwidget.h"
 #include "src/core/dbghelper.h"
 #include "src/core/obvcore.h"
-#include "src/core/verse/verseurl.h"
+#include "src/core/link/verseurl.h"
 BookDockWidget::BookDockWidget(QWidget *parent) :
     DockWidget(parent),
     ui(new Ui::BookDockWidget)
 {
+    //DEBUG_FUNC_NAME
     ui->setupUi(this);
     connect(ui->listView_books, SIGNAL(activated(QModelIndex)), this, SLOT(readBook(QModelIndex)));
 
@@ -44,8 +45,8 @@ void BookDockWidget::init()
     connect(m_actions, SIGNAL(_clearBooks()), this, SLOT(clearBooks()));
     connect(m_actions, SIGNAL(_clearChapters()), this, SLOT(clearChapters()));
 
-    connect(m_actions, SIGNAL(_updateBooks(Versification *)), this, SLOT(setBooks(Versification *)));
-    connect(m_actions, SIGNAL(_updateChapters(int, Versification *)), this, SLOT(setChapters(int, Versification *)));
+    connect(m_actions, SIGNAL(_updateBooks(QSharedPointer<Versification>)), this, SLOT(setBooks(QSharedPointer<Versification>)));
+    connect(m_actions, SIGNAL(_updateChapters(int, QSharedPointer<Versification>)), this, SLOT(setChapters(int, QSharedPointer<Versification>)));
 }
 BookDockWidget::~BookDockWidget()
 {
@@ -76,7 +77,7 @@ void BookDockWidget::readChapter()
     }
     m_actions->get(url);
 }
-void BookDockWidget::setChapters(int bookID, Versification *v11n)
+void BookDockWidget::setChapters(int bookID, QSharedPointer<Versification> v11n)
 {
     //DEBUG_FUNC_NAME
     if(v11n == NULL)
@@ -96,8 +97,10 @@ void BookDockWidget::setChapters(int bookID, Versification *v11n)
         m_chapterModel->appendRow(top);
     }
 }
-void BookDockWidget::setBooks(Versification *v11n)
+void BookDockWidget::setBooks(QSharedPointer<Versification>  v11n)
 {
+    //DEBUG_FUNC_NAME
+
     m_bookModel->clear();
     if(v11n == NULL)
         return;
@@ -123,6 +126,8 @@ void BookDockWidget::clearChapters()
 
 void BookDockWidget::setCurrentBook(const int bookID)
 {
+    //DEBUG_FUNC_NAME;
+    //myDebug() << "bookID = " << bookID;
     const QModelIndexList list = m_bookModel->match(m_bookModel->index(0, 0), Qt::UserRole + 1, bookID, 1, Qt::MatchExactly);
     if(list.size() == 1) {
         m_bookSelection->clearSelection();

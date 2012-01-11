@@ -284,13 +284,14 @@ static QUrl guessUrlFromString(const QString &string)
 
 void NotesEditor::createLink()
 {
+
     InsertLinkDialog *insertLinkDialog = new InsertLinkDialog(this);
     connect(insertLinkDialog, SIGNAL(newLink(QString)), this, SLOT(createLink(QString)));
     setAll(insertLinkDialog);
 
     insertLinkDialog->init();
-
-    insertLinkDialog->setCurrent(m_moduleManager->verseModule()->lastTextRanges()->toBibleUrlRanges());
+    //todo: bibleform: How can we get the current active window, and its url
+    //insertLinkDialog->setCurrent(m_moduleManager->verseModule()->lastTextRanges()->source().source());
     insertLinkDialog->show();
     insertLinkDialog->exec();
 }
@@ -308,7 +309,6 @@ void NotesEditor::pharseUrl(QUrl url)
 {
     DEBUG_FUNC_NAME;
     QString link = url.toString();
-    myDebug() << link;
     const QString note = "note://";
     if(link.startsWith(note)) {
         link = link.remove(0, note.size());

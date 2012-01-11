@@ -13,11 +13,17 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
-
-
+#include "src/module/dictionary/biblequote-dict.h"
+#include "src/module/dictionary/zefania-lex.h"
+#include "src/module/bible/zefania-bible.h"
+#include "src/module/bible/biblequote.h"
+#include "src/module/bible/thewordbible.h"
+#include "src/module/webpage.h"
+#include "src/module/dictionary/webdictionary.h"
+#include <QtCore/QFSFileEngine>
+#include <QtCore/QPointer>
+#include "src/core/qzipreader_p.h"
 #ifdef BUILD_WITH_SWORD
-#include <stdio.h>
-#include <iostream>
 #include <stdlib.h>
 #include <swmgr.h>
 #include <swmodule.h>
@@ -51,12 +57,14 @@ SettingsDialog::~SettingsDialog()
 {
     delete m_ui;
 }
+
 void SettingsDialog::reset()
 {
     m_modifedModuleSettings = false;
     m_set = m_backupSet;
     setSettings(m_set);
 }
+
 QStringList SettingsDialog::scan(const QString &path, const int level = 0)
 {
     QStringList ret;
@@ -74,6 +82,7 @@ QStringList SettingsDialog::scan(const QString &path, const int level = 0)
     }
     return ret;
 }
+
 int SettingsDialog::setSettings(Settings settings)
 {
     m_set = settings;
@@ -150,17 +159,23 @@ int SettingsDialog::setSettings(Settings settings)
     m_ui->checkBox_showRefLinks->setChecked(config->displaySettings()->showRefLinks());
     m_ui->checkBox_showStrong->setChecked(config->displaySettings()->showStrong());
     m_ui->checkBox_showStudyNotes->setChecked(config->displaySettings()->showStudyNotes());
+    m_ui->checkBox_showRMac->setChecked(config->displaySettings()->showRMac());
+    m_ui->checkBox_showCaptions->setChecked(config->displaySettings()->showCaptions());
+    m_ui->checkBox_showProlog->setChecked(config->displaySettings()->showProlog());
 
     return 0;
 
 }
+
 void SettingsDialog::generateModuleTree()
 {
     DEBUG_FUNC_NAME;
+
     ModuleModel model(this);
     model.setSettings(&m_set);
     model.setShowAll(true);
     model.generate();
+
     m_ui->treeView->setModel(model.itemModel());
     m_ui->treeView->model()->setHeaderData(0, Qt::Horizontal, tr("Module"));
 }
@@ -168,29 +183,30 @@ void SettingsDialog::generateModuleTree()
 void SettingsDialog::addModuleFile(void)
 {
     m_modifedModuleSettings = true;
-    QFileDialog dialog(this);
-    dialog.setFileMode(QFileDialog::ExistingFiles);
-    dialog.setDirectory(m_set.session.getData("addModuleFile_Dir", QFSFileEngine::homePath()).toString());
+    QPointer<QFileDialog> dialog = new QFileDialog(this);
+    dialog->setFileMode(QFileDialog::ExistingFiles);
+    dialog->setDirectory(m_set.session.getData("addModuleFile_Dir", QFSFileEngine::homePath()).toString());
 
-    if(dialog.exec()) {
-        const QStringList fileName = dialog.selectedFiles();
+    if(dialog->exec()) {
+        const QStringList fileName = dialog->selectedFiles();
         addModules(fileName, QStringList());
-        m_set.session.setData("addModuleFile_Dir", dialog.directory().absolutePath());
+        m_set.session.setData("addModuleFile_Dir", dialog->directory().absolutePath());
     }
-    return;
+    delete dialog;
 }
+
 void SettingsDialog::addModuleDir(void)
 {
     m_modifedModuleSettings = true;
-    QFileDialog dialog(this);
+    QPointer<QFileDialog> dialog = new QFileDialog(this);
 
-    dialog.setFileMode(QFileDialog::Directory);
-    dialog.setOption(QFileDialog::ShowDirsOnly, true);
-    dialog.setDirectory(m_set.session.getData("addModuleDir_Dir", QFSFileEngine::homePath()).toString());
+    dialog->setFileMode(QFileDialog::Directory);
+    dialog->setOption(QFileDialog::ShowDirsOnly, true);
+    dialog->setDirectory(m_set.session.getData("addModuleDir_Dir", QFSFileEngine::homePath()).toString());
 
-    if(dialog.exec()) {
-        const QStringList fileName = dialog.selectedFiles();
-        m_set.session.setData("addModuleDir_Dir", dialog.directory().absolutePath());
+    if(dialog->exec()) {
+        const QStringList fileName = dialog->selectedFiles();
+        m_set.session.setData("addModuleDir_Dir", dialog->directory().absolutePath());
 
         if(fileName.size() > 0) {
             QProgressDialog progress(QObject::tr("Adding Modules"), QObject::tr("Cancel"), 0, fileName.size());
@@ -198,8 +214,10 @@ void SettingsDialog::addModuleDir(void)
             progress.show();
             for(int i = 0; i < fileName.size(); i++) {
                 progress.setValue(i);
-                if(progress.wasCanceled())
+                if(progress.wasCanceled()) {
+                    delete dialog;
                     return;
+                }
                 const QString f = fileName.at(i);
                 ModuleSettings *m = new ModuleSettings();
                 m->moduleID = m_set.newModuleID();
@@ -219,9 +237,9 @@ void SettingsDialog::addModuleDir(void)
                     }
                     m->moduleName = dictname;
                     m->moduleType = OBVCore::FolderModule;
-                    //m.isDir = true;
                 } else {
                     QMessageBox::critical(0, QObject::tr("Error"), QObject::tr("It is not a folder."));
+                    delete dialog;
                     return;
                 }
 
@@ -233,6 +251,12 @@ void SettingsDialog::addModuleDir(void)
                 m->encoding = "Default";//no translating
                 m->parentID = -1;
                 m_set.m_moduleSettings.insert(m->moduleID, m);
+                m_set.getModuleSettings(m->parentID)->appendChild(m);
+
+                ModuleSettings *parent = m_set.getModuleSettings(m->parentID);
+                m->setParent(parent);
+                m->setDisplaySettings(parent->displaySettings());
+
                 const QStringList scanned = scan(f);
                 foreach(const QString & file, scanned) {
                     if(ModuleManager::recognizeModuleType(file) != OBVCore::NoneType) {//that is faster than check in quitAddModule
@@ -240,20 +264,26 @@ void SettingsDialog::addModuleDir(void)
                     }
                 }
             }
-            progress.close();
             generateModuleTree();
+            progress.close();
+
         }
 
     }
+    delete dialog;
 }
+
 void SettingsDialog::removeModule()
 {
     //DEBUG_FUNC_NAME;
     if(m_ui->treeView->selectionModel()->selectedIndexes().isEmpty())
         return;
     m_modifedModuleSettings = true;
-
-    foreach(QModelIndex index, m_ui->treeView->selectionModel()->selectedIndexes()) {
+    QModelIndexList l = m_ui->treeView->selectionModel()->selectedIndexes();
+    QListIterator<QModelIndex> i(l);
+    i.toBack();
+    while (i.hasPrevious()) {
+        QModelIndex index = i.previous();
         bool ok;
         const int moduleID = index.data(Qt::UserRole + 1).toInt(&ok);
         if(ok) {
@@ -265,6 +295,7 @@ void SettingsDialog::removeModule()
         m_ui->treeView->model()->removeRow(index.row(), index.parent());
     }
 }
+
 void SettingsDialog::editModule()
 {
     //DEBUG_FUNC_NAME
@@ -275,11 +306,11 @@ void SettingsDialog::editModule()
     const int moduleID = m_ui->treeView->selectionModel()->selectedIndexes().first().data(Qt::UserRole + 1).toInt(&ok);
     myDebug() << "moduleID = " << moduleID;
     if(moduleID >= 0 && ok) {
-        ModuleConfigDialog *mDialog = new ModuleConfigDialog(this);
+        QPointer<ModuleConfigDialog> mDialog = new ModuleConfigDialog(this);
         mDialog->setModule(m_set.getModuleSettings(moduleID));
         connect(mDialog, SIGNAL(save(ModuleSettings)), mDialog, SLOT(close()));
-        mDialog->show();
         mDialog->exec();
+        delete mDialog;
     }
 
 }
@@ -303,6 +334,9 @@ void SettingsDialog::save(void)
     config->displaySettings()->setShowRefLinks(m_ui->checkBox_showRefLinks->isChecked());
     config->displaySettings()->setShowStrong(m_ui->checkBox_showStrong->isChecked());
     config->displaySettings()->setShowStudyNotes(m_ui->checkBox_showStudyNotes->isChecked());
+    config->displaySettings()->setShowRMac(m_ui->checkBox_showRMac->isChecked());
+    config->displaySettings()->setShowCaptions(m_ui->checkBox_showCaptions->isChecked());
+    config->displaySettings()->setShowProlog(m_ui->checkBox_showProlog->isChecked());
 
     QMap<int, int> struc;
     foreach(ModuleSettings * set, m_set.m_moduleSettings) {
@@ -319,12 +353,15 @@ void SettingsDialog::save(void)
     foreach(ModuleSettings * set, m_set.m_moduleSettings) {
         struc2.insert(set->moduleID, set->parentID);
     }
+
     if(struc != struc2) {
+        myDebug() << "modified struct";
         m_modifedModuleSettings = true;
     }
     emit settingsChanged(m_set, m_modifedModuleSettings); //Speichern
     close();
 }
+
 void SettingsDialog::saveModule(QModelIndex parentIndex, ModuleSettings *parentSettings)
 {
     for(int i = 0; i < m_ui->treeView->model()->rowCount(parentIndex); ++i) {
@@ -344,14 +381,16 @@ void SettingsDialog::saveModule(QModelIndex parentIndex, ModuleSettings *parentS
 
 void SettingsDialog::downloadModule()
 {
-    ModuleDownloadDialog *mDialog = new ModuleDownloadDialog(this);
+    QPointer<ModuleDownloadDialog> mDialog = new ModuleDownloadDialog(this);
     mDialog->setSettings(m_set);
     mDialog->readModules();
-    connect(mDialog, SIGNAL(downloaded(QMap<QString,QString>)), this, SLOT(addModules(QMap<QString,QString>)));
+    connect(mDialog, SIGNAL(downloaded(QMap<QString, QString>)), this, SLOT(addModules(QMap<QString, QString>)));
 
     mDialog->exec();
+    delete mDialog;
 }
-void SettingsDialog::addModules(QMap<QString,QString> data)
+
+void SettingsDialog::addModules(QMap<QString, QString> data)
 {
     addModules(data.keys(), data.values());
 }
@@ -383,55 +422,107 @@ void SettingsDialog::addModules(QStringList fileName, QStringList names, int par
         progress.close();
     }
 }
+
 int SettingsDialog::quiteAddModule(const QString &f, int parentID, const QString &name)
 {
+    DEBUG_FUNC_NAME
+    QFileInfo fileInfo(f);
+    if(fileInfo.suffix() == "zip") {
+
+        QZipReader reader(f);
+        QString path;
+
+        if(fileInfo.absoluteDir().entryList(QDir::Files | QDir::NoDotAndDotDot).size() > 1) {
+            //mkpath
+            QDir d(fileInfo.absoluteDir());
+            d.mkdir(fileInfo.baseName());
+            path = fileInfo.absoluteDir().path() + "/" + fileInfo.baseName();
+        } else {
+            path = fileInfo.absoluteDir().path();
+        }
+
+        reader.extractAll(path);
+        reader.close();
+
+
+        QStringList l;
+        QDir pathDir(path);
+        foreach(QFileInfo info, pathDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot)) {
+            if(info.suffix() == "zip")
+                continue;
+            l << info.absoluteFilePath();
+        }
+        foreach(const QString &p, l) {
+            quiteAddModule(p, parentID, name);
+        }
+
+        return 0;
+    }
     OBVCore::ModuleType moduleType = OBVCore::NoneType;
 
     ModuleSettings *m = new ModuleSettings();
     m->moduleID = m_set.newModuleID();
 
-    QFileInfo fileInfo(f);
     if(fileInfo.isFile()) {
-
-        if(f.endsWith(".zip")) {
-            //todo: unzip first
-            //QMessageBox::critical(0, QObject::tr("Error"), QObject::tr("Cannot open zipped files."));
-            return 3;
-
-        }
         moduleType = ModuleManager::recognizeModuleType(f);
-
         if(moduleType == OBVCore::NoneType) {
             //QMessageBox::critical(0, QObject::tr("Error"), QObject::tr("Cannot determine the module type."));
             myWarning() << "cannot determine module type of " << f;
             return 4;
         }
+        MetaInfo info;
+        if(moduleType == OBVCore::BibleQuoteModule) {
+            BibleQuote bq;
+            bq.setSettings(&m_set);
+            info = bq.readInfo(f);
+        } else if(moduleType == OBVCore::ZefaniaBibleModule) {
+            ZefaniaBible zef;
+            zef.setSettings(&m_set);
+            info = zef.readInfo(f);
+        } else if(moduleType == OBVCore::ZefaniaLexModule) {
+            ZefaniaLex zefLex;
+            zefLex.setSettings(&m_set);
+            zefLex.setID(0, f);
+            info = zefLex.buildIndexFromFile(f);
+        } else if(moduleType == OBVCore::BibleQuoteDictModule) {
+            BibleQuoteDict bibleQuoteDict;
+            bibleQuoteDict.setSettings(&m_set);
+            bibleQuoteDict.setID(0, f);
+            info = bibleQuoteDict.readInfo(f);
+            //bibleQuoteDict.buildIndex();
+        } else if(moduleType == OBVCore::TheWordBibleModule) {
+            TheWordBible theWordBible;
+            theWordBible.setSettings(&m_set);
+            info = theWordBible.readInfo(f);
+        } else if(moduleType == OBVCore::WebPageModule) {
+            WebPage webPage;
+            webPage.setSettings(&m_set);
+            info = webPage.readInfo(f);
+        } else if(moduleType == OBVCore::WebDictionaryModule) {
+            WebDictionary webDict;
+            webDict.setSettings(&m_set);
+            info = webDict.readInfo(f);
+        }
         if(name.isEmpty()) {
-            if(moduleType == OBVCore::BibleQuoteModule) {
-                BibleQuote bq;
-                bq.setSettings(&m_set);
-                m->moduleName = bq.readInfo(f);
-            } else if(moduleType == OBVCore::ZefaniaBibleModule) {
-                ZefaniaBible zef;
-                zef.setSettings(&m_set);
-                m->moduleName = zef.readInfo(f);
-            } else if(moduleType == OBVCore::ZefaniaLexModule) {
-                ZefaniaLex zefLex;
-                zefLex.setSettings(&m_set);
-                m->moduleName = zefLex.buildIndexFromFile(f);
-            } else if(moduleType == OBVCore::BibleQuoteDictModule) {
-                BibleQuoteDict bibleQuoteDict;
-                bibleQuoteDict.setSettings(&m_set);
-                m->moduleName = bibleQuoteDict.readInfo(f);
-                bibleQuoteDict.buildIndex();
-            } else if(moduleType == OBVCore::TheWordBibleModule) {
-                TheWordBible theWordBible;
-                theWordBible.setSettings(&m_set);
-                m->moduleName = theWordBible.readInfo(f);
-            }
+            m->moduleName = info.name();
         } else {
             m->moduleName = name;
         }
+        m->moduleShortName = info.shortName();
+
+
+        bool setDefault = true;
+        //if there is already a default module, don't overwrite
+        foreach(const ModuleSettings * s, m_set.m_moduleSettings) {
+            if(s->defaultModule == info.defaultModule()) {
+                setDefault = false;
+            }
+        }
+        if(setDefault) {
+            m->defaultModule = info.defaultModule();
+        }
+        m->contentType = info.content();
+
         m->modulePath = f;
         m->moduleType = moduleType;
 
@@ -444,47 +535,48 @@ int SettingsDialog::quiteAddModule(const QString &f, int parentID, const QString
     m->biblequote_removeHtml = m_set.removeHtml;
     m->zefbible_hardCache = m_set.zefaniaBible_hardCache;
     m->zefbible_softCache = m_set.zefaniaBible_softCache;
-    //m->zefbible_textFormatting = m_set.textFormatting;
     m->encoding = "Default";
     m->parentID = parentID;
+
 
     m_set.getModuleSettings(m->parentID)->appendChild(m);
     m_set.m_moduleSettings.insert(m->moduleID, m);
 
     return 0;
 }
+
 void SettingsDialog::importSwordModules()
 {
     DEBUG_FUNC_NAME;
 #ifdef BUILD_WITH_SWORD
     SWMgr library(new MarkupFilterMgr(FMT_PLAIN));
     ModMap::iterator it;
-                    for (it = library.Modules.begin(); it != library.Modules.end(); it++) {
-                        //todo: deduplication
-                        const QString name = QString::fromLocal8Bit((*it).second->Name());
-                        const QString desc = QString::fromLocal8Bit((*it).second->Description());
-                        const QString type = QString::fromLocal8Bit((*it).second->Type());
+    for(it = library.Modules.begin(); it != library.Modules.end(); it++) {
+        //todo: deduplication
+        const QString name = QString::fromLocal8Bit((*it).second->Name());
+        const QString desc = QString::fromLocal8Bit((*it).second->Description());
+        const QString type = QString::fromLocal8Bit((*it).second->Type());
 
-                        myDebug() << name << desc << type;
-                        if(type == "Biblical Texts") { //cu
-                            ModuleSettings *m = new ModuleSettings();
-                            m->moduleID = m_set.newModuleID();
-                            m->moduleName = desc;
-                            m->modulePath = name;
-                            m->moduleType = OBVCore::SwordBibleModule;
+        myDebug() << name << desc << type;
+        if(type == "Biblical Texts") { //cu
+            ModuleSettings *m = new ModuleSettings();
+            m->moduleID = m_set.newModuleID();
+            m->moduleName = desc;
+            m->modulePath = name;
+            m->moduleType = OBVCore::SwordBibleModule;
 
-                            m->biblequote_removeHtml = m_set.removeHtml;
-                            m->zefbible_hardCache = m_set.zefaniaBible_hardCache;
-                            m->zefbible_softCache = m_set.zefaniaBible_softCache;
+            m->biblequote_removeHtml = m_set.removeHtml;
+            m->zefbible_hardCache = m_set.zefaniaBible_hardCache;
+            m->zefbible_softCache = m_set.zefaniaBible_softCache;
 
-                            m->encoding = "Default";
-                            m->parentID = -1;
+            m->encoding = "Default";
+            m->parentID = -1;
 
-                            m_set.getModuleSettings(m->parentID)->appendChild(m);
-                            m_set.m_moduleSettings.insert(m->moduleID, m);
-                        }
-                    }
-                    generateModuleTree();
+            m_set.getModuleSettings(m->parentID)->appendChild(m);
+            m_set.m_moduleSettings.insert(m->moduleID, m);
+        }
+    }
+    generateModuleTree();
 
 #endif
 }

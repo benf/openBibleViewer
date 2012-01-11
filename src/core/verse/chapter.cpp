@@ -12,6 +12,7 @@ You should have received a copy of the GNU General Public License along with
 this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "chapter.h"
+#include "src/core/dbghelper.h"
 Chapter::Chapter()
 {
     m_chapterID = -1;
@@ -22,10 +23,10 @@ Chapter::Chapter(const int chapterID)
     m_chapterID = chapterID;
     m_verseCount = 0;
 }
-void Chapter::addVerse(const int verseID, const Verse &verse)
+void Chapter::addVerse(const Verse &verse)
 {
     m_verseCount++;
-    m_data.insert(verseID, verse);
+    m_data.insert(verse.verseID(), verse);
 }
 QMap<int, Verse> Chapter::data() const
 {

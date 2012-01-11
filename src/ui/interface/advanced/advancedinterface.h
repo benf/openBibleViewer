@@ -41,6 +41,8 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "src/ui/interface/advanced/manager/notesmanager.h"
 #include "src/ui/interface/advanced/manager/searchmanager.h"
 #include "src/ui/interface/advanced/manager/bookmarksmanager.h"
+#include "src/ui/interface/advanced/manager/dictionarymanager.h"
+#include "src/ui/interface/advanced/manager/webpagemanager.h"
 
 #include "mdiareafilter.h"
 
@@ -48,6 +50,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "src/ui/noteseditor.h"
 #include "src/ui/marklist.h"
 
+#include <QtCore/QPointer>
 namespace Ui
 {
 class AdvancedInterface;
@@ -61,8 +64,7 @@ public slots:
     void settingsChanged(Settings oldSettings, Settings newSettings, bool modifedModuleSettings);
     void restoreSession();
 private slots:
-    void pharseUrl(QUrl url);
-    void pharseUrl(QString url);
+    void pharseUrl(QString url, const Actions::OpenLinkModifiers mod);
 
     void saveFile();
     void printFile();
@@ -72,7 +74,7 @@ private slots:
     void copy();
     void selectAll();
 
-    int showAboutDialog();
+    void showAboutDialog();
     void showMarkCategories();
     void showMarkList();
     void showNotesEditor();
@@ -97,15 +99,14 @@ public:
     void createToolBars();
     void createMenu();
 
+    QString name() const;
+
 protected:
     void changeEvent(QEvent *e);
-signals:
-    void historySetUrl(QString url);
-    void reloadInterface();
+
 private:
     Ui::AdvancedInterface *ui;
 
-    ModuleDisplaySettings *m_moduledisplaysettings;
     Api *m_api;
     //Menu
     QAction *m_actionTabbedView;
@@ -125,13 +126,13 @@ private:
 
     void toolBarSetText();
 
-    DictionaryDockWidget * m_dictionaryDockWidget;
-
     WindowManager *m_windowManager;
     BibleManager *m_bibleManager;
     NotesManager *m_notesManager;
     SearchManager *m_searchManager;
     BookmarksManager *m_bookmarksManager;
+    DictionaryManager *m_dictionaryManager;
+    WebPageManager *m_webPageManager;
 };
 
 #endif // ADVANCEDINTERFACE_H

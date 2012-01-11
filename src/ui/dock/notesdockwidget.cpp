@@ -71,15 +71,10 @@ void NotesDockWidget::changeRef(QString id, QMap<QString, QString> ref)
 
     UrlConverter urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, url);
     urlConverter.setSettings(m_settings);
-    urlConverter.setModuleMap(m_moduleManager->m_moduleMap);
-    urlConverter.setV11n(m_moduleManager->verseModule()->versification());
+    urlConverter.setModuleMap(m_moduleManager->m_moduleMap.data());
     VerseUrl newUrl = urlConverter.convert();
     if(newUrl.isValid()) {
-        VerseUrlRange r = newUrl.ranges().first();
-
-        if(m_moduleManager->verseModule()->moduleID() == r.moduleID() && m_moduleManager->verseModule()->lastTextRanges()->contains(r.bookID(), r.chapterID())) {
-            m_actions->reloadChapter();
-        }
+        m_actions->reloadIf(newUrl);
     }
 
 }
@@ -93,15 +88,10 @@ void NotesDockWidget::removeNote(QString id, QMap<QString, QString>ref)
 
     UrlConverter urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, url);
     urlConverter.setSettings(m_settings);
-    urlConverter.setModuleMap(m_moduleManager->m_moduleMap);
-    urlConverter.setV11n(m_moduleManager->verseModule()->versification());
-    VerseUrl newUrl = urlConverter.convert();
+    urlConverter.setModuleMap(m_moduleManager->m_moduleMap.data());
+    const VerseUrl newUrl = urlConverter.convert();
     if(newUrl.isValid()) {
-        VerseUrlRange r = newUrl.ranges().first();
-
-        if(m_moduleManager->verseModule()->moduleID() == r.moduleID() && m_moduleManager->verseModule()->lastTextRanges()->contains(r.bookID(), r.chapterID())) {
-            m_actions->reloadChapter();
-        }
+        m_actions->reloadIf(newUrl);
     }
 }
 
@@ -118,10 +108,9 @@ void NotesDockWidget::newNote(void)
 {
     m_simpleNotes->newTextNote();
 }
-void NotesDockWidget::newNoteWithLink(VerseSelection selection)
+void NotesDockWidget::newNoteWithLink(VerseSelection selection, QSharedPointer<Versification> v11n)
 {
-    m_simpleNotes->newTextNoteWithLink(selection);
-    m_actions->reloadChapter();
+    m_simpleNotes->newTextNoteWithLink(selection, v11n);
 }
 void NotesDockWidget::noteSetTextBold(void)
 {
@@ -163,19 +152,19 @@ void NotesDockWidget::noteRedo()
     ui->textBrowser->redo();
 }
 
-void NotesDockWidget::newMark(VerseSelection selection, QColor color)
+void NotesDockWidget::newMark(VerseSelection selection, QColor color, QSharedPointer<Versification> v11n)
 {
-    newStyleMark(selection, "background-color:" + color.name());
+    newStyleMark(selection, "background-color:" + color.name(), v11n);
 }
-void NotesDockWidget::newStyleMark(VerseSelection selection, QString style)
-{
-    m_simpleNotes->newStyleMark(selection, style);
-
-}
-void NotesDockWidget::removeMark(VerseSelection selection)
+void NotesDockWidget::newStyleMark(VerseSelection selection, QString style, QSharedPointer<Versification> v11n)
 {
     DEBUG_FUNC_NAME
-    bool r = false;
+    m_simpleNotes->newStyleMark(selection, style, v11n);
+
+}
+void NotesDockWidget::removeMark(VerseSelection selection, QSharedPointer<Versification> v11n)
+{
+    DEBUG_FUNC_NAME
     const QStringList id = m_notes->getIDList();
     for(int i = 0; i < id.size(); i++) {
         if(m_notes->getType(id.at(i)) == "mark") {
@@ -186,8 +175,7 @@ void NotesDockWidget::removeMark(VerseSelection selection)
 
             UrlConverter urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, url);
             urlConverter.setSettings(m_settings);
-            urlConverter.setModuleMap(m_moduleManager->m_moduleMap);
-            urlConverter.setV11n(m_moduleManager->verseModule()->versification());
+            urlConverter.setModuleMap(m_moduleManager->m_moduleMap.data());
             VerseUrl newUrl = urlConverter.convert();
 
             if(newUrl.contains(selection.moduleID, selection.bookID, selection.startChapterID)) {
@@ -202,13 +190,12 @@ void NotesDockWidget::removeMark(VerseSelection selection)
                     myDebug() << "remove = " << m_notes->getRef(noteID, "start");
                     //todo: work with positions in text
                     m_notes->removeNote(noteID);
-                    r = true;
+                    m_actions->reloadIf(newUrl);
                 }
             }
         }
     }
-    if(r)
-        m_actions->reloadChapter();
+
 }
 void NotesDockWidget::changeEvent(QEvent *e)
 {

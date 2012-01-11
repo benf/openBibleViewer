@@ -15,7 +15,8 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "ui_advancedsearchresultdockwidget.h"
 #include <QtGui/QSortFilterProxyModel>
 #include <QtGui/QMessageBox>
-#include "src/core/verse/verseurl.h"
+#include <QtCore/QPointer>
+#include "src/core/link/verseurl.h"
 #include "src/ui/dialog/searchinfodialog.h"
 #include "src/core/dbghelper.h"
 AdvancedSearchResultDockWidget::AdvancedSearchResultDockWidget(QWidget *parent) :
@@ -32,6 +33,7 @@ AdvancedSearchResultDockWidget::~AdvancedSearchResultDockWidget()
 }
 void AdvancedSearchResultDockWidget::init()
 {
+    m_searchResult = NULL;
     m_itemModel = new QStandardItemModel(this);
     m_itemModel->setHeaderData(0, Qt::Horizontal, tr("Result"));
     m_proxyModel = new QSortFilterProxyModel(this);
@@ -48,7 +50,7 @@ void AdvancedSearchResultDockWidget::init()
 }
 void AdvancedSearchResultDockWidget::setSearchResult(SearchResult *searchResult)
 {
-    DEBUG_FUNC_NAME
+    //DEBUG_FUNC_NAME
 
     m_itemModel->clear();
     m_searchResult = searchResult;
@@ -63,7 +65,8 @@ void AdvancedSearchResultDockWidget::setSearchResult(SearchResult *searchResult)
         const int book = hit.value(SearchHit::BookID).toInt();
         if(m_bookItems.contains(book))
             continue;
-        QStandardItem *bookItem = new QStandardItem(m_moduleManager->verseModule()->versification()->bookName(book));
+        QSharedPointer<Versification> v11n = m_settings->getV11N(hit.value(SearchHit::ModuleID).toInt());
+        QStandardItem *bookItem = new QStandardItem(v11n->bookName(book));
         bookItem->setData("book", Qt::UserRole + 2);
         parentItem->appendRow(bookItem);
         m_bookItems.insert(book, bookItem);
@@ -72,7 +75,8 @@ void AdvancedSearchResultDockWidget::setSearchResult(SearchResult *searchResult)
     for(int i = 0; i < hits.size(); ++i) {
         SearchHit hit = hits.at(i);
         if(hit.type() == SearchHit::BibleHit) {
-            QStandardItem *hitItem = new QStandardItem(m_moduleManager->verseModule()->versification()->bookName(hit.value(SearchHit::BookID).toInt()) + " " +
+            QSharedPointer<Versification> v11n = m_settings->getV11N(hit.value(SearchHit::ModuleID).toInt());
+            QStandardItem *hitItem = new QStandardItem(v11n->bookName(hit.value(SearchHit::BookID).toInt()) + " " +
                     QString::number(hit.value(SearchHit::ChapterID).toInt() + 1) + ":" +
                     QString::number(hit.value(SearchHit::VerseID).toInt() + 1));
             hitItem->setData(i, Qt::UserRole + 1);
@@ -89,9 +93,7 @@ void AdvancedSearchResultDockWidget::setSearchResult(SearchResult *searchResult)
             notesItem->appendRow(hitItem);
         }
     }
-
     ui->pushButton_searchInfo->setDisabled(false);
-
 }
 void AdvancedSearchResultDockWidget::goToSearchResult(QModelIndex index)
 {
@@ -100,16 +102,21 @@ void AdvancedSearchResultDockWidget::goToSearchResult(QModelIndex index)
     if(id < m_searchResult->hits().size() && id >= 0) {
         SearchHit hit = m_searchResult->hits().at(id);
         if(hit.type() == SearchHit::BibleHit) {
-            if(!m_moduleManager->contains(hit.value(SearchHit::BibleID).toInt()))
+            if(!m_moduleManager->contains(hit.value(SearchHit::ModuleID).toInt()))
                 return;
 
             VerseUrl url;
             VerseUrlRange range;
-            range.setModule(hit.value(SearchHit::BibleID).toInt());
+            if(m_settings->advancedSearchDock_useCurrentModule == true) {
+                range.setModule(VerseUrlRange::LoadCurrentModule);
+            } else {
+                range.setModule(hit.value(SearchHit::ModuleID).toInt());
+            }
+
             range.setBook(hit.value(SearchHit::BookID).toInt());
             range.setChapter(hit.value(SearchHit::ChapterID).toInt());
-            range.setActiveVerse(hit.value(SearchHit::VerseID).toInt());
-            range.setWholeChapter();
+            range.setStartVerse(hit.value(SearchHit::VerseID).toInt());
+
             url.addRange(range);
             url.setParam("searchInCurrentText", "true");
             m_actions->get(url);
@@ -120,19 +127,21 @@ void AdvancedSearchResultDockWidget::goToSearchResult(QModelIndex index)
 }
 void AdvancedSearchResultDockWidget::searchInfo()
 {
-    if(!m_moduleManager->contains(m_moduleManager->verseModule()->moduleID())) {
+    SearchResult *result = m_searchResult;
+    if(result == NULL) {
         QMessageBox::information(0, tr("Error"), tr("No search information available."));
         return;
     }
 
-    SearchResult *result = m_searchResult;
     QList<SearchHit> list = result->hits(SearchHit::BibleHit);
-
+    QSharedPointer<Versification>  v11n_t;
     QStringList textList;
     for(int i = 0; i < list.size(); ++i) {
         SearchHit hit = list.at(i);
         if(hit.type() == SearchHit::BibleHit) {
-            const QString bookn = m_moduleManager->verseModule()->versification()->bookName(hit.value(SearchHit::BookID).toInt()); //todo: maybe the bible isn't loaded and you need another bookNames
+            QSharedPointer<Versification> v11n = m_settings->getV11N(hit.value(SearchHit::ModuleID).toInt());
+            v11n_t = v11n;
+            const QString bookn = v11n->bookName(hit.value(SearchHit::BookID).toInt()); //todo: maybe the bible isn't loaded and you need another bookNames
             //or we just call it a feature
             textList << hit.value(SearchHit::VerseText).toString() + "\n - <i>" + bookn
                      + " " + QString::number(hit.value(SearchHit::ChapterID).toInt() + 1)
@@ -140,11 +149,10 @@ void AdvancedSearchResultDockWidget::searchInfo()
         }
     }
 
-    SearchInfoDialog sDialog;
-    sDialog.show();
-
-    sDialog.setInfo(result, m_moduleManager->verseModule()->versification(), m_searchResult->searchQuery.searchText, textList);
-    sDialog.exec();
+    QPointer<SearchInfoDialog> sDialog = new SearchInfoDialog(this);
+    sDialog->setInfo(result, v11n_t, m_searchResult->searchQuery.searchText, textList);
+    sDialog->exec();
+    delete sDialog;
 }
 
 void AdvancedSearchResultDockWidget::nextVerse()

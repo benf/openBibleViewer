@@ -26,14 +26,13 @@ class Chapter
 public:
     Chapter();
     Chapter(const int chapterID);
-    void addVerse(const int verseID, const Verse &verse);
+    void addVerse(const Verse &verse);
     QMap<int, Verse> data() const;
     int verseCount() const;
     void setChapterID(const int chapterID);
     int chapterID() const;
 private:
     QMap<int, Verse> m_data;
-    QStringList m_verseNumber;
     int m_verseCount;
     int m_chapterID;
 

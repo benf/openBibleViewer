@@ -56,12 +56,10 @@ void InsertLinkDialog::init()
     ui->page->layout()->addWidget(m_frame);
 }
 
-void InsertLinkDialog::setCurrent(const QList<VerseUrlRange> &ranges)
+void InsertLinkDialog::setCurrent(const VerseUrl &url)
 {
-    m_frame->setVerseUrlRanges(ranges);
-
+    m_frame->setVerseUrl(url);
 }
-
 
 void InsertLinkDialog::save()
 {
@@ -70,7 +68,7 @@ void InsertLinkDialog::save()
         VerseUrl url = m_frame->toVerseUrl();
         UrlConverter converter(UrlConverter::InterfaceUrl, UrlConverter::PersistentUrl, url);
         converter.setSettings(m_settings);
-        converter.setModuleMap(m_moduleManager->m_moduleMap);
+        converter.setModuleMap(m_moduleManager->m_moduleMap.data());
         VerseUrl p = converter.convert();
         myDebug() << p.toString();
         emit newLink(p.toString());

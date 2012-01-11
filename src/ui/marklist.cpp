@@ -14,7 +14,8 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "marklist.h"
 #include "ui_marklist.h"
 #include "src/core/dbghelper.h"
-#include "src/core/urlconverter2.h"
+#include "src/core/link/urlconverter2.h"
+#include "src/core/verse/reftext.h"
 #include "src/core/obvcore.h"
 #include <QtGui/QMenu>
 #include <QtGui/QCursor>
@@ -66,11 +67,14 @@ void MarkList::init()
 void MarkList::addMark(const int row, const QString &id)
 {
     UrlConverter2 urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, m_notes->getRef(id, "link"));
-    urlConverter.setSM(m_settings, m_moduleManager->m_moduleMap);
+    urlConverter.setSM(m_settings, m_moduleManager->m_moduleMap.data());
     urlConverter.convert();
 
-    const QString string = urlConverter.bookName() + " " + QString::number(urlConverter.chapterID() + 1) + "," +
-                           QString::number(urlConverter.verseID() + 1);
+    RefText ref;
+    ref.setSettings(m_settings);
+    ref.setShowModuleName(false);
+
+    const QString string = ref.toString(urlConverter.url());
 
     QStandardItem *stelle = new QStandardItem(string);
     stelle->setData(id);
@@ -79,9 +83,9 @@ void MarkList::addMark(const int row, const QString &id)
 
     QString t = "";
 
-    Module *module = m_moduleManager->getModule(urlConverter.moduleID());
-    if(module && !module->title().isEmpty())
-        t = module->title();
+    ModuleSettings *module = m_settings->getModuleSettings(urlConverter.moduleID());
+    if(module && !module->name(true).isEmpty())
+        t = module->name(true);
 
     QStandardItem *moduleItem = new QStandardItem(t);
     m_itemModel->setItem(row, 1, moduleItem);
@@ -92,7 +96,7 @@ void MarkList::load(QModelIndex index)
     const int row = index.row();
     index = m_itemModel->index(row, 0);
     UrlConverter2 urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, m_notes->getRef(index.data(Qt::UserRole + 1).toString(), "link"));
-    urlConverter.setSM(m_settings, m_moduleManager->m_moduleMap);
+    urlConverter.setSM(m_settings, m_moduleManager->m_moduleMap.data());
     urlConverter.convert();
     m_actions->get(urlConverter.url());
 }
@@ -100,6 +104,7 @@ void MarkList::load(QModelIndex index)
 
 void MarkList::showContextMenu(QPoint point)
 {
+    m_currentPoint = point;
     QMenu *contextMenu = new QMenu(this);
     QAction *actionDelete = new QAction(QIcon::fromTheme("edit-delete",
                                         QIcon(":/icons/16x16/edit-delete.png")),
@@ -108,7 +113,7 @@ void MarkList::showContextMenu(QPoint point)
     connect(actionDelete, SIGNAL(triggered()), this, SLOT(deleteMarks()));
     contextMenu->addAction(actionDelete);
     contextMenu->exec(QCursor::pos());
-    m_currentPoint = point;
+    delete contextMenu;
 }
 void MarkList::addNote(const QString &id)
 {

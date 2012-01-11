@@ -16,19 +16,14 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 
 ModuleManager::ModuleManager()
 {
-    m_moduleMap = new ModuleMap();
-    m_dictionary = NULL;
+    m_moduleMap = QSharedPointer<ModuleMap>(new ModuleMap());
     m_rootModule = NULL;
 }
 ModuleManager::~ModuleManager()
 {
     //DEBUG_FUNC_NAME
-    delete m_moduleMap;
+    m_moduleMap.clear();
 
-    if(m_dictionary != NULL) {
-        delete m_dictionary;
-        m_dictionary = NULL;
-    }
     if(m_moduleModel != NULL) {
         delete m_moduleModel;
         m_moduleModel = NULL;
@@ -36,6 +31,10 @@ ModuleManager::~ModuleManager()
     if(m_rootModule != NULL) {
         delete m_rootModule;
         m_rootModule = NULL;
+    }
+    if(m_moduleDisplaySettings != NULL) {
+        delete m_moduleDisplaySettings;
+        m_moduleDisplaySettings = NULL;
     }
 }
 
@@ -48,11 +47,14 @@ void ModuleManager::setNotes(Notes *notes)
 {
     m_notes = notes;
 }
-void ModuleManager::setModuleDisplaySettings(ModuleDisplaySettings *moduledisplaysettings)
+void ModuleManager::newDisplaySettings()
 {
-    m_moduledisplaysettings = moduledisplaysettings;
+    m_moduleDisplaySettings = new ModuleDisplaySettings();
 }
-
+ModuleDisplaySettings * ModuleManager::moduleDisplaySetings()
+{
+    return m_moduleDisplaySettings;
+}
 
 /**
   * Load all Modules, and generate a QStandardItemModel.
@@ -61,14 +63,17 @@ int ModuleManager::loadAllModules()
 {
     DEBUG_FUNC_NAME;
     //update module settings and display settings
-
+    m_moduleMap->data.clear();
     ModuleSettings *root = new ModuleSettings();
     root->moduleID = -1;
     root->parentID = -2;
 
+    foreach(ModuleSettings * set, m_settings->m_moduleSettings) {
+        set->clearChildren();
+    }
     //set parents
     {
-        QHashIterator<int, ModuleSettings*> it2(m_settings->m_moduleSettings);
+        QMapIterator<int, ModuleSettings*> it2(m_settings->m_moduleSettings);
         while(it2.hasNext())  {
             it2.next();
             ModuleSettings *child = it2.value();
@@ -83,19 +88,25 @@ int ModuleManager::loadAllModules()
             }
         }
         QSharedPointer<ModuleDisplaySettings> displaySettings = QSharedPointer<ModuleDisplaySettings>(new ModuleDisplaySettings());
+
+        //todo: what is that?
         displaySettings->setShowStudyNotes(true);
         displaySettings->setShowStrong(true);
         displaySettings->setShowRefLinks(false);
         displaySettings->setShowNotes(true);
         displaySettings->setShowMarks(true);
         displaySettings->setShowBottomToolBar(true);
+        displaySettings->setShowRMac(true);
+        displaySettings->setShowCaptions(false);
+        displaySettings->setShowProlog(false);
+
         root->setDisplaySettings(displaySettings);
 
         m_settings->m_moduleSettings.insert(-1, root);
     }
     //use parent settings display
     {
-        QHashIterator<int, ModuleSettings*> it2(m_settings->m_moduleSettings);
+        QMapIterator<int, ModuleSettings*> it2(m_settings->m_moduleSettings);
         while(it2.hasNext())  {
             it2.next();
             ModuleSettings *child = it2.value();
@@ -114,6 +125,7 @@ int ModuleManager::loadAllModules()
 
     //The invisible root Module
     m_rootModule = new Module();
+    m_rootModule->setSettings(m_settings);
     m_rootModule->setModuleID(-1);
     m_rootModule->setModuleClass(OBVCore::FolderClass);
     m_rootModule->setModuleType(OBVCore::NoneType);
@@ -125,6 +137,7 @@ int ModuleManager::loadAllModules()
         }
         ModuleModel model(0);
         model.setSettings(m_settings);
+        model.setShowAll(true);
         model.generate();
         m_moduleModel = model.itemModel();
     } else {
@@ -151,22 +164,32 @@ void ModuleManager::loadModule(Module *parentModule, ModuleSettings *settings)
     if(settings == NULL)
         return;
     Module *module = new Module(parentModule);
+    module->setSettings(m_settings);
     module->setPath(settings->modulePath);
-
     module->setModuleType(settings->moduleType);
-    module->setTitle(settings->moduleName);
+
     module->setModuleID(settings->moduleID);
-    parentModule->append(module);
-    m_moduleMap->m_map.insert(settings->moduleID, module);
+
+    //m_map deletes them
+    m_moduleMap->data.insert(settings->moduleID, module);
 
     if(settings->moduleType == OBVCore::BibleQuoteModule
             || settings->moduleType == OBVCore::ZefaniaBibleModule
             || settings->moduleType == OBVCore::TheWordBibleModule
             || settings->moduleType == OBVCore::SwordBibleModule) {
+
         module->setModuleClass(OBVCore::BibleModuleClass);
-    } else if(settings->moduleType == OBVCore::ZefaniaLexModule || settings->moduleType == OBVCore::BibleQuoteDictModule) {
+
+    } else if(settings->moduleType == OBVCore::ZefaniaLexModule || settings->moduleType == OBVCore::BibleQuoteDictModule || settings->moduleType == OBVCore::WebDictionaryModule) {
+
         module->setModuleClass(OBVCore::DictionaryModuleClass);
+
+    } else if(settings->moduleType == OBVCore::WebPageModule) {
+
+        module->setModuleClass(OBVCore::WebPageClass);
+
     }
+    myDebug() << module->moduleID() << module->moduleType() << module->moduleClass();
 
     //recursive
     foreach(ModuleSettings * s, settings->children()) {
@@ -174,63 +197,46 @@ void ModuleManager::loadModule(Module *parentModule, ModuleSettings *settings)
     }
 
 }
-void ModuleManager::initVerseModule(VerseModule *b)
+void ModuleManager::initVerseModule(VerseModule *m) const
 {
-    if(b != 0) {
-        b->setSettings(m_settings);
-        b->setNotes(m_notes);
-        b->setModuleMap(m_moduleMap);
-        b->setmoduledisplaysettings(m_moduledisplaysettings);
+    if(m != NULL) {
+        m->setSettings(m_settings);
+        m->setNotes(m_notes);
+        m->setModuleMap(m_moduleMap);
+        m->setModuleDisplaySettings(m_moduleDisplaySettings);
+    }
+}
+void ModuleManager::initSimpleModule(SimpleModuleClass *m) const
+{
+    if(m != NULL) {
+        m->setSettings(m_settings);
+        m->setNotes(m_notes);
+        m->setModuleMap(m_moduleMap);
     }
 }
 
-/**
-  * Returns true, if a bible is loaded.
-  */
-bool ModuleManager::bibleLoaded()
+bool ModuleManager::dictionaryLoaded(const Dictionary *dict)
 {
-    if(m_verseTable && verseModule() && m_moduleMap->m_map.contains(verseModule()->moduleID()) && verseModule()->moduleID() >= 0)
+    if(dict && m_moduleMap->data.contains(dict->moduleID()) && dict->moduleID() >= 0)
         return true;
     return false;
 }
-
-
-bool ModuleManager::hasBible()
+bool ModuleManager::metaModuleLoaded(const SimpleModuleClass *m) const
 {
-    if(m_verseTable && verseModule())
-        return true;
-    return false;
+    return (m && m_moduleMap->data.contains(m->moduleID()) && m->moduleID() >= 0);
 }
-/**
-  * Returns true, if a strong module is loaded.
-  */
-bool ModuleManager::strongLoaded()
+bool ModuleManager::verseTableLoaded(const VerseTable *table) const
 {
-
-    if(m_moduleMap->m_map.contains(m_dictionary->moduleID())  &&  m_dictionary->moduleID() >= 0)
-        return true;
-    return false;
+    return (table && table->verseModule() && m_moduleMap->data.contains(table->verseModule()->moduleID()) && table->verseModule()->moduleID() >= 0);
 }
 bool ModuleManager::contains(const int moduleID)
 {
-    return m_moduleMap->m_map.contains(moduleID);
+    return m_moduleMap->data.contains(moduleID);
 }
 
-VerseModule * ModuleManager::verseModule()
-{
-    return verseTable()->verseModule();
-}
-VerseTable * ModuleManager::verseTable()
-{
-    return m_verseTable;
-}
 Module * ModuleManager::getModule(const int moduleID)
 {
-    return m_moduleMap->m_map.value(moduleID);
-}
-Dictionary* ModuleManager::dictionary()
-{
-    return m_dictionary;
+    return m_moduleMap->module(moduleID);
 }
 
 /**
@@ -242,10 +248,11 @@ QString ModuleManager::notePos2Link(const QString &pos)
     url.fromString(pos);
     UrlConverter urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, url);
     urlConverter.setSettings(m_settings);
-    urlConverter.setModuleMap(m_moduleMap);
+    urlConverter.setModuleMap(m_moduleMap.data());
     VerseUrl newUrl = urlConverter.convert();
     RefText refText;
     refText.setSettings(m_settings);
+    refText.setShowModuleName(true);
     const QString link = newUrl.toString();
     return "<a href=\"" + link + "\">" + refText.toString(newUrl) + "</a>";
 }
@@ -255,29 +262,20 @@ QString ModuleManager::notePos2Text(const QString &pos)
     url.fromString(pos);
     UrlConverter urlConverter(UrlConverter::PersistentUrl, UrlConverter::InterfaceUrl, url);
     urlConverter.setSettings(m_settings);
-    urlConverter.setModuleMap(m_moduleMap);
+    urlConverter.setModuleMap(m_moduleMap.data());
     VerseUrl newUrl = urlConverter.convert();
     RefText refText;
     refText.setSettings(m_settings);
+    refText.setShowModuleName(true);
 
     const QString string = refText.toString(newUrl);
     return string;
 }
-QStringList ModuleManager::getBibleTitles()
-{
-    QStringList titles;
-    QMapIterator<int, Module *> i(m_moduleMap->m_map);
-    while(i.hasNext()) {
-        i.next();
-        if(i.value()->moduleClass() == OBVCore::BibleModuleClass)
-            titles.append(i.value()->title());
-    }
-    return titles;
-}
+
 QStringList ModuleManager::getBiblePaths()
 {
     QStringList paths;
-    QMapIterator<int, Module *> i(m_moduleMap->m_map);
+    QMapIterator<int, Module *> i(m_moduleMap->data);
     while(i.hasNext()) {
         i.next();
         if(i.value()->moduleClass() == OBVCore::BibleModuleClass)
@@ -288,7 +286,7 @@ QStringList ModuleManager::getBiblePaths()
 QList<int> ModuleManager::getBibleIDs()
 {
     QList<int> ids;
-    QMapIterator<int, Module *> i(m_moduleMap->m_map);
+    QMapIterator<int, Module *> i(m_moduleMap->data);
     while(i.hasNext()) {
         i.next();
         if(i.value()->moduleClass() == OBVCore::BibleModuleClass)
@@ -306,53 +304,52 @@ void ModuleManager::checkCache(const int moduleID)
         b->loadModuleData(moduleID);//set cache
     }*/
 }
-VerseModule * ModuleManager::newVerseModule(const int moduleID, QPoint p)
+VerseModule * ModuleManager::newVerseModule(const int moduleID, QPoint p, VerseTable *table)
 {
-    DEBUG_FUNC_NAME
     if(!contains(moduleID)) {
         myWarning() << "invalid moduleID = " << moduleID;
         return NULL;
     }
 
-    const int id = verseTable()->m_points.key(p, -1);
+    VerseModule *m = newVerseModule(moduleID);
+    table->addModule(m, p);
+    return m;
+}
+VerseModule * ModuleManager::newVerseModule(const int moduleID)
+{
+    if(!contains(moduleID)) {
+        myWarning() << "invalid moduleID = " << moduleID;
+        return NULL;
+    }
     VerseModule *m = NULL;
-    /*if(id != -1) {
-        m = verseTable()->verseModule(id);
-        initVerseModule(m);
-    } else {*/
-    //todo: support for other VerseModules
     if(getModule(moduleID)->moduleClass() == OBVCore::BibleModuleClass) {
         m = new Bible();
         initVerseModule(m);
+    } else {
+        myWarning() << "not a verse module " << getModule(moduleID)->moduleClass();
+        return NULL;
     }
-    /*}*/
-    //todo: check if this is possible b->moduleID() != moduleID
-
     OBVCore::ModuleType type = getModule(moduleID)->moduleType();
     m->setModuleType(type);
     m->setModuleID(moduleID);
-    myDebug() << moduleID;
-    //todo: load module data?
-    /* if(getModule(moduleID)->moduleClass() == OBVCore::BibleModuleClass) {
-         myDebug() << "loading the module data";
-         ((Bible*)m)->loadModuleData(moduleID);
-     }*/
-
-    verseTable()->addModule(m, p);
-
     return m;
 }
+
 OBVCore::ModuleType ModuleManager::recognizeModuleType(const QString &fileName)
 {
     //myDebug() << fileName;
     if(fileName.endsWith("bibleqt.ini", Qt::CaseInsensitive)) {
         return OBVCore::BibleQuoteModule;
+    } else if(fileName.endsWith(".webdict.xml", Qt::CaseInsensitive)) {
+        return OBVCore::WebDictionaryModule;
+    } else if(fileName.endsWith(".webpage.xml", Qt::CaseInsensitive)) {
+        return OBVCore::WebPageModule;
     } else if(fileName.endsWith(".xml", Qt::CaseInsensitive)) {
         QFile data(fileName);
         if(data.open(QFile::ReadOnly)) {
             QString fileData = "";
             QTextStream in(&data);
-            for(int i = 0; i < 10; i++)
+            for(int i = 0; i < 100; i++)
                 fileData += in.readLine();
             //myDebug() << "fileData = " << fileData;
             if(fileData.contains("XMLBIBLE", Qt::CaseInsensitive) && !(fileData.contains("x-quran", Qt::CaseInsensitive) || // i cannot allow this
@@ -363,6 +360,8 @@ OBVCore::ModuleType ModuleManager::recognizeModuleType(const QString &fileName)
                 return OBVCore::ZefaniaLexModule;
             }
 
+        } else {
+            myWarning() << "could not open file " << fileName;
         }
     } else if(fileName.endsWith(".idx", Qt::CaseInsensitive)) {
         return OBVCore::BibleQuoteDictModule;
@@ -371,4 +370,65 @@ OBVCore::ModuleType ModuleManager::recognizeModuleType(const QString &fileName)
         return OBVCore::TheWordBibleModule;
     }
     return OBVCore::NoneType;
+}
+
+OBVCore::DefaultModule ModuleManager::toDefaultModule(const OBVCore::ContentType t)
+{
+    switch (t) {
+        case OBVCore::BibleContent:
+        case OBVCore::BibleOTContent:
+        case OBVCore::BibleNTContent:
+            return OBVCore::DefaultBibleModule;
+        case OBVCore::StrongsContent:
+        case OBVCore::StrongsGreekContent:
+        case OBVCore::StrongsHebrewContent:
+            return OBVCore::DefaultStrongDictModule;
+        case OBVCore::RMacContent:
+            return OBVCore::DefaultRMACDictModule;
+        case OBVCore::WordDictionaryContent:
+            return OBVCore::DefaultDictModule;
+        case OBVCore::GramContent:
+            return OBVCore::DefaultGramDictModule;
+        default:
+            return OBVCore::NotADefaultModule;//todo: could this cause some bugs?
+    }
+}
+/**
+ * The t2 is the content we want.
+ */
+bool ModuleManager::alsoOk(const OBVCore::ContentType t1, const OBVCore::ContentType t2)
+{
+    if(t1 == t2)
+        return true;
+
+    if(t2 == OBVCore::BibleOTContent) {
+        if(t1 == OBVCore::BibleContent)
+            return true;
+    }
+    if(t2 == OBVCore::BibleNTContent) {
+        if(t1 == OBVCore::BibleContent)
+            return true;
+    }
+
+    if(t2 == OBVCore::StrongsGreekContent) {
+        if(t1 == OBVCore::StrongsContent)
+            return true;
+    }
+    if(t2 == OBVCore::StrongsHebrewContent) {
+        if(t1 == OBVCore::StrongsContent)
+            return true;
+    }
+    return false;
+
+}
+
+VerseTable * ModuleManager::newVerseTable()
+{
+    VerseTable *verseTable = new VerseTable();
+    Bible *b = new Bible();
+
+    initVerseModule(b);
+    verseTable->addModule(b, QPoint(0, 0));
+
+    return verseTable;
 }

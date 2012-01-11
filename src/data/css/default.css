@@ -3,13 +3,15 @@ html {
     color:#000000;
     padding: 0;
     margin: 0;
+    font-family: sans-serif;
+    font-size:14px;
 }
 
 .verseTableTitle a:link, a:visited, a:active{
-    color:#000000;
+    color: #000000;
 }
 .verseTableTitle a:hover {
-    color:#0080AF;
+    color: #0080AF;
     text-shadow: 1px 1px 0px #fff;
 }
 .verseTable td[class~=active] a:link, a:visited, a:active, #topTable td[class~=active] a:link, a:visited, a:active{
@@ -48,11 +50,12 @@ td.rowTitle {
     width:5em;
 }
 .selectedEntry {
-    border: 1px solid #17AAFF;
+    border-left: 2px solid #17AAFF;
     padding-left:2px;
     padding-top:2px;
     padding-bottom:2px;
-    background-color: #F2FAFF;
+    background-color: #E1E9FF;
+    font-weight:bold;
 }
 
 .gramlink {
@@ -63,13 +66,46 @@ td.rowTitle {
     content: "  ";
 }
 .gramlink a{
-    color:#323232;
+    color: #323232;
     text-decoration:none;
 }
 .gramlink a:hover{
     color:#0080AF;
     text-decoration:underline;
 }
+
+.stronglink {
+    font-size: 70%;
+    vertical-align: super;
+}
+.stronglink:after {
+    content: "  ";
+}
+.stronglink a{
+    color: #002B70;
+    text-decoration:none;
+}
+.stronglink a:hover{
+    color: #0080AF;
+    text-decoration:underline;
+}
+
+.rmaclink {
+    font-size: 70%;
+    vertical-align: super;
+}
+.rmaclink:after {
+    content: "  ";
+}
+.rmaclink a{
+    color: #700000;
+    text-decoration:none;
+}
+.rmaclink a:hover{
+    color: #0080AF;
+    text-decoration:underline;
+}
+
 .crossreference {
     font-size: 80%;
     color: blue;
@@ -95,10 +131,10 @@ td.rowTitle {
 }
 .studynote {
     font-size: small;
-    color:#420F00;
+    color: #420F00;
 }
 .verseNumber {
-    color:#014B88;
+    color: #014B88;
     font-size: smaller;
     vertical-align: super;
 }
@@ -113,4 +149,27 @@ td.rowTitle {
 }
 td .rangeTitle {
     text-align: center;
+}
+.pageBreak {
+    page-break-after: always;
+}
+
+.sup {
+    font-size: 90%;
+    vertical-align: super;
+}
+.sub {
+    font-size: 90%;
+    vertical-align: bottom;
+}
+
+.underline {
+    text-decoration:underline;
+}
+.otquote {
+    font-style:italic;
+}
+
+.wordsofjesus {
+    color: red;
 }

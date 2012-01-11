@@ -14,7 +14,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "biblequote.h"
 #include "config.h"
 #include "CLucene.h"
-#include "CLucene/_clucene-config.h"
+#include "CLucene/clucene-config.h"
 using namespace lucene::store;
 using namespace lucene::analysis;
 using namespace lucene::index;
@@ -26,23 +26,17 @@ BibleQuote::BibleQuote()
 {
     m_moduleID = -1;
     m_codec = NULL;
-    m_versification = NULL;
+}
+BibleQuote::~BibleQuote()
+{
 }
 
-void BibleQuote::setSettings(Settings *set)
-{
-    m_settings = set;
-}
 QString BibleQuote::formatFromIni(QString input)
 {
     return input.trimmed();
 }
 int BibleQuote::loadBibleData(const int bibleID, const QString &path)
 {
-    /*if(m_versification != NULL)
-        delete m_versification;
-    m_versification = NULL;*/
-
     QStringList bookFullName;
     QList<QStringList> bookShortName;
     QMap<int, int> bookCount;
@@ -136,21 +130,20 @@ int BibleQuote::loadBibleData(const int bibleID, const QString &path)
 
         }
     }
-    settings->loadVersification();
-    if(settings->v11n == NULL) {
+    m_versification = settings->loadVersification();
+    if(settings->noV11N()) {
         myDebug() << "load new versification";
-        settings->v11n = new Versification_BibleQuote(bookFullName, bookShortName, bookCount);
+        m_versification = QSharedPointer<Versification>(new Versification_BibleQuote(bookFullName, bookShortName, bookCount));
+        settings->v11n = m_versification.toWeakRef();
         settings->versificationName = "";
         settings->versificationFile = m_settings->v11nFile(path);
+
     }
-    settings->v11n->extendedData.setHasChapterZeor(m_chapterZero);
-    m_versification = settings->v11n;
+    settings->getV11n()->extendedData.setHasChapterZeor(m_chapterZero);
     return 0;
 }
-/**
-  Reads the ini-file and returns the bible name. If the file is invalid is returns an empty QString.
-  */
-QString BibleQuote::readInfo(QFile &file)
+
+MetaInfo BibleQuote::readInfo(QFile &file)
 {
     bool useShortName = false;
     m_moduleName.clear();
@@ -209,13 +202,17 @@ QString BibleQuote::readInfo(QFile &file)
     if(m_moduleName.isEmpty()) {
         myWarning() << "invalid ini File " << file.fileName();
     }
-    return m_moduleName;
+
+    MetaInfo ret;
+    ret.setName(m_moduleName);
+    ret.setShortName(m_moduleShortName);
+    return ret;
 }
-QString BibleQuote::readInfo(const QString &fileName)
+MetaInfo BibleQuote::readInfo(const QString &fileName)
 {
     QFile file(fileName);
     if(!file.open(QIODevice::ReadOnly))
-        return "";
+        return MetaInfo();
     return readInfo(file);
 }
 int BibleQuote::readBook(const int id)
@@ -285,15 +282,22 @@ int BibleQuote::readBook(const int id)
 
     //todo: its slow
     for(int i = 0; i < chapterText.size() - 1; i++) {
-        Chapter c;
-        c.setChapterID(i);
-        QStringList rawVerseList = chapterText.at(i + 1).split(m_verseSign);
+        Chapter c(i);
+        const QStringList rawVerseList = chapterText.at(i + 1).split(m_verseSign);
         for(int j = 0; j < rawVerseList.size(); j++) { //split removes versesign but it is needed
             QString verseText = rawVerseList.at(j);
-            Verse v(j, verseText.prepend(m_verseSign));
-            c.addVerse(j, v);
+            //myDebug() << verseText;
+
+            if(verseText.contains("<p>") && !verseText.contains("</p>"))
+                verseText.remove("<p>", Qt::CaseInsensitive);
+
+            if(verseText.contains("</p>") || m_verseSign != "<p>")
+                verseText.prepend(m_verseSign);
+
+            const Verse v(j, verseText);
+            c.addVerse(v);
         }
-        m_book.addChapter(i, c);
+        m_book.addChapter(c);
     }
     file.close();
     return 0;
@@ -403,7 +407,7 @@ void BibleQuote::buildIndex()
                 doc.clear();
                 const QString t = verses.at(verseit);
                 const QString key = QString::number(id) + ";" + QString::number(chapterit - 1) + ";" + QString::number(verseit - 1);
-#ifdef _USE_WSTRING
+#ifdef OBV_USE_WSTRING
                 doc.add(*new Field(_T("key"), key.toStdWString().c_str(), Field::STORE_YES |  Field::INDEX_NO));
                 doc.add(*new Field(_T("content"), t.toStdWString().c_str(), Field::STORE_YES |  Field::INDEX_TOKENIZED));
 #else
@@ -433,7 +437,7 @@ void BibleQuote::search(const SearchQuery &query, SearchResult *res) const
 
     IndexReader* reader = IndexReader::open(index.toStdString().c_str());
     IndexSearcher s(reader);
-#ifdef _USE_WSTRING
+#ifdef OBV_USE_WSTRING
     Query* q = QueryParser::parse(query.searchText.toStdWString().c_str(), _T("content"), &analyzer);
 #else
     Query* q = QueryParser::parse(reinterpret_cast<const wchar_t *>(query.searchText.utf16()), _T("content"), &analyzer);
@@ -441,7 +445,7 @@ void BibleQuote::search(const SearchQuery &query, SearchResult *res) const
     Hits* h = s.search(q);
     for(size_t i = 0; i < h->length(); i++) {
         Document* doc = &h->doc(i);
-#ifdef _USE_WSTRING
+#ifdef OBV_USE_WSTRING
         const QString stelle = QString::fromWCharArray(doc->get(_T("key")));
 #else
         const QString stelle = QString::fromUtf16((const ushort*)doc->get(_T("key")));
@@ -451,11 +455,11 @@ void BibleQuote::search(const SearchQuery &query, SearchResult *res) const
         if(query.range == SearchQuery::Whole || (query.range == SearchQuery::OT && l.at(0).toInt() <= 38) || (query.range == SearchQuery::NT && l.at(0).toInt() > 38)) {
             SearchHit hit;
             hit.setType(SearchHit::BibleHit);
-            hit.setValue(SearchHit::BibleID, m_moduleID);
+            hit.setValue(SearchHit::ModuleID, m_moduleID);
             hit.setValue(SearchHit::BookID, l.at(0).toInt());
             hit.setValue(SearchHit::ChapterID, l.at(1).toInt());
             hit.setValue(SearchHit::VerseID, l.at(2).toInt());
-#ifdef _USE_WSTRING
+#ifdef OBV_USE_WSTRING
             hit.setValue(SearchHit::VerseText, QString::fromWCharArray(doc->get(_T("content"))));
 #else
             hit.setValue(SearchHit::VerseText, QString::fromUtf16((const ushort*)doc->get(_T("content"))));
@@ -498,7 +502,7 @@ TextRange BibleQuote::rawTextRange(int bookID, int chapterID, int startVerse, in
     ret.setChapterID(chapterID);
 
     const Chapter c = m_book.getChapter(chapterID);
-    QMap<int, Verse> data = c.data();
+    const QMap<int, Verse> data = c.data();
     QMapIterator<int, Verse> i(data);
     while(i.hasNext()) {
         i.next();
@@ -513,7 +517,6 @@ std::pair<int, int> BibleQuote::minMaxVerse(int bookID, int chapterID)
     std::pair<int, int> ret;
     if(m_book.bookID() != bookID) {
         readBook(bookID);
-        myDebug() << "book not loaded";
     }
     if(!m_book.hasChapter(chapterID)) {
         myWarning() << "index out of range index chapterID = " << chapterID;
@@ -526,4 +529,12 @@ std::pair<int, int> BibleQuote::minMaxVerse(int bookID, int chapterID)
     ret.second = c.data().keys().last();
 
     return ret;
+}
+QStringList BibleQuote::booksPath() const
+{
+    return m_bookPath;
+}
+void BibleQuote::clearData()
+{
+    m_book.clear();
 }

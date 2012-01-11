@@ -16,6 +16,12 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 TextRanges::TextRanges()
 {
 }
+TextRanges::TextRanges(const TextRanges &r)
+{
+    m_ranges = r.m_ranges;
+    m_source = r.m_source;
+}
+
 QString TextRanges::join(const QString &seperator) const
 {
     QString out;
@@ -261,4 +267,16 @@ bool TextRanges::failed() const
         failed = failed || r.failed();
     }
     return failed;
+}
+
+void TextRanges::setSource(const Ranges &source)
+{
+    DEBUG_FUNC_NAME;
+    myDebug() << m_source.source().toString();
+    m_source = source;
+}
+
+Ranges TextRanges::source() const
+{
+    return m_source;
 }

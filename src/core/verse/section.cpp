@@ -11,17 +11,22 @@ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
+<<<<<<< HEAD:src/core/verse/section.cpp
 #include "section.h"
 Section::Section()
+=======
+#include "verse.h"
+Verse::Verse() : m_verseID(-1), m_text()
+>>>>>>> master:src/core/verse/verse.cpp
 {
-    m_verseID = -1;
-    m_text = "";
 }
 
+<<<<<<< HEAD:src/core/verse/section.cpp
 Section::Section(const int verseID, const QString &text)
+=======
+Verse::Verse(const int verseID, const QString &text) : m_verseID(verseID), m_text(text)
+>>>>>>> master:src/core/verse/verse.cpp
 {
-    m_verseID = verseID;
-    m_text = text;
 }
 int Section::verseID() const
 {

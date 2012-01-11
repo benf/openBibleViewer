@@ -18,34 +18,19 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include <QtCore/QSettings>
 #include <QtCore/QTranslator>
 #include <QtCore/QLibraryInfo>
-#include <QtCore/QMapIterator>
-#include <QtCore/QTimer>
 #include <QtCore/QDir>
 
 #include <QtGui/QToolBar>
 #include <QtGui/QMessageBox>
 #include <QtGui/QMainWindow>
 
-#include <typeinfo>
-
-#include "src/module/modulemanager.h"
-
-#include "src/core/verse/versification/versification_kjv.h"
-#include "src/core/settings/settings.h"
-#include "src/core/settings/modulecache.h"
-#include "src/core/settings/session.h"
-#include "src/ui/interface/interface.h"
-#include "src/ui/interface/simple/simpleinterface.h"
-#include "src/ui/interface/advanced/advancedinterface.h"
-#include "src/ui/interface/study/studyinterface.h"
-#include "src/ui/dialog/settingsdialog.h"
-
-
-#include "src/core/notes/xmlnotes.h"
-#include "src/core/dbghelper.h"
-#include "src/core/obvcore.h"
 #include "config.h"
 #include "src/core/version.h"
+
+#include "src/core/settings/settings.h"
+#include "src/core/settings/session.h"
+
+#include "src/ui/interface/interface.h"
 namespace Ui
 {
 class MainWindow;
@@ -68,6 +53,7 @@ public:
     ~MainWindow();
     void init(const QString &homeDataPath, QSettings * settingsFile);
     QSettings *m_settingsFile;
+    QSettings *m_sessionFile;
     QString VERSION, BUILD;
     QString m_homeDataPath;
     void setSettings(Settings settings);
@@ -99,8 +85,6 @@ private:
     void loadSettings();
     void restoreSession();
     int m_reloadLang;
-
-
 
 };
 

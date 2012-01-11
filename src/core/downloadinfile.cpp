@@ -1,3 +1,16 @@
+/***************************************************************************
+openBibleViewer - Bible Study Tool
+Copyright (C) 2009-2011 Paul Walger <metaxy@walger.name>
+This program is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3 of the License, or (at your option)
+any later version.
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+You should have received a copy of the GNU General Public License along with
+this program; if not, see <http://www.gnu.org/licenses/>.
+*****************************************************************************/
 #include "downloadinfile.h"
 #include <QtCore/QDir>
 #include "src/core/dbghelper.h"
@@ -8,6 +21,7 @@ DownloadInFile::DownloadInFile(QObject *parent, QNetworkAccessManager *manager) 
     m_file = NULL;
     m_reply = NULL;
 }
+
 void DownloadInFile::setUrl(const QUrl &url)
 {
     m_url = url;
@@ -22,6 +36,7 @@ void DownloadInFile::setFolder(const QString &folder)
 {
     m_path = folder;
 }
+
 void DownloadInFile::setName(const QString &name)
 {
     m_name = name;
@@ -29,54 +44,32 @@ void DownloadInFile::setName(const QString &name)
 
 void DownloadInFile::download()
 {
-    DEBUG_FUNC_NAME;
-    myDebug() << m_url.toString();
-   /* if(m_reply != NULL) {
-        delete m_reply;
-        m_reply = NULL;
-    }*/
     QDir dir(QDir::homePath());
     dir.mkpath(m_path);
     //m_path has seperator
     m_localUrl = m_path + m_fileName;
     m_file = new QFile(m_localUrl);
 
-    if (!m_file->open(QIODevice::WriteOnly)) {
+    if(!m_file->open(QIODevice::WriteOnly)) {
         myWarning() << "could not open file" << m_file->errorString();
-        myDebug() << "full = " << m_localUrl;
         return;
     }
+
     QNetworkRequest request(m_url);
+
     //otherwise it will send a redirection link for browsers
-    request.setRawHeader("User-Agent","curl/7.21.2");
+    request.setRawHeader("User-Agent", "curl/7.21.2");
     request.setRawHeader("Accept", "*/*");
     m_reply = m_manager->get(request);
 
-   // connect(m_reply, SIGNAL(readyRead()), this, SLOT(read()));
-    connect(m_reply, SIGNAL(downloadProgress(qint64,qint64)), this, SIGNAL(progress(qint64,qint64)));
+    connect(m_reply, SIGNAL(downloadProgress(qint64, qint64)), this, SIGNAL(progress(qint64, qint64)));
     connect(m_reply, SIGNAL(finished()), this, SLOT(finish()));
-
-}
-void DownloadInFile::read()
-{
 
 }
 void DownloadInFile::finish()
 {
-    DEBUG_FUNC_NAME;
-
-    myDebug() << m_reply->url();
-
     int status = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    myDebug() << "status = " << status;
-    if (status == 302 || status == 301) { // redirected
-        myDebug() <<  "redirecation target attribute(url)= " << m_reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
-        myDebug() << "redirecation target attribute= " << m_reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toString();
-
-        myDebug() << m_reply->rawHeader("Location");
-
-        //myDebug() << "location header = " << m_reply->header(QNetworkRequest::LocationHeader).toString();
-
+    if(status == 302 || status == 301) {  // redirected
         m_url = m_reply->header(QNetworkRequest::LocationHeader).toUrl();
         m_reply->deleteLater();
         m_file->close();

@@ -19,7 +19,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include <QComboBox>
 #include <QSpinBox>
 #include "src/core/basicclass.h"
-#include "src/core/verse/verseurl.h"
+#include "src/core/link/verseurl.h"
 #include "src/ui/recursivproxymodel.h"
 #include <QtGui/QToolButton>
 #include <QtGui/QMenu>
@@ -41,7 +41,10 @@ private slots:
     void changeTypeTo_BCVV();
     void changeTypeTo_BC();
 
+    void add();
+    void replace();
 
+    void reload(const QModelIndex &index);
 public:
     explicit BiblePassageFrame(QWidget *parent = 0);
     ~BiblePassageFrame();
@@ -61,6 +64,9 @@ private:
     QToolButton *newButton(const int id);
 
     void deleteBox(const int boxID);
+
+    void getModuleID();
+    void clear();
 };
 
 #endif // BIBLEPASSAGEFRAME_H

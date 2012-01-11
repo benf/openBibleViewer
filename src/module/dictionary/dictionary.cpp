@@ -15,15 +15,20 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 
 Dictionary::Dictionary()
 {
-    m_zefaniaLex = 0;
-    m_bibleQuoteDict = 0;
     m_moduleType = OBVCore::NoneType;
     m_moduleID = -1;
 }
+Dictionary::~Dictionary()
+{
+    DEBUG_FUNC_NAME
+    m_dictionaryModule.clear();
+}
+
 int Dictionary::loadModuleData(const int moduleID)
 {
     DEBUG_FUNC_NAME
-    m_module = m_map->m_map.value(moduleID);
+    myDebug() << moduleID;
+    m_module = m_map->module(moduleID);
     if(moduleID < 0 || m_module == NULL) {
         myWarning() << "invalid moduleID = " << moduleID;
         return 1;
@@ -31,62 +36,39 @@ int Dictionary::loadModuleData(const int moduleID)
     m_moduleID = moduleID;
     const QString path = m_module->path();
 
-    switch(m_moduleType) {
-    case OBVCore::ZefaniaLexModule: {
-        if(m_module->m_zefaniaLex) {
-            m_zefaniaLex = m_module->m_zefaniaLex;
-        } else {
-            m_zefaniaLex = new ZefaniaLex();
-            m_zefaniaLex->setSettings(m_settings);
-            m_module->m_zefaniaLex = m_zefaniaLex;
-        }
-        m_zefaniaLex->setID(m_moduleID, path);
-        break;
-    }
-    case OBVCore::BibleQuoteDictModule: {
-        if(m_module->m_bibleQuoteDict) {
-            m_bibleQuoteDict = m_module->m_bibleQuoteDict;
-        } else {
-            m_bibleQuoteDict = new BibleQuoteDict();
-            m_bibleQuoteDict->setSettings(m_settings);
-            m_module->m_bibleQuoteDict = m_bibleQuoteDict;
-        }
-        m_bibleQuoteDict->setID(m_moduleID, path);
-        break;
-    }
-    default:
-        return 1;
+    if(m_module->m_dictionaryModule) {
+        m_dictionaryModule = m_module->m_dictionaryModule;
+    } else {
+        m_dictionaryModule = m_module->newDictionaryModule(m_module->moduleType());
+        if(m_dictionaryModule.isNull())
+            return 1;
+        m_dictionaryModule->setSettings(m_settings);
+        m_dictionaryModule->setID(m_moduleID, path);
     }
     return 0;
 }
 QString Dictionary::getEntry(const QString &string) const
 {
-    switch(m_moduleType) {
-    case OBVCore::ZefaniaLexModule: {
-        return m_zefaniaLex->getEntry(string);
-        break;
+    if(string.contains(" ")) {
+        QString ret;
+        const QStringList parts = string.split(" ");
+        foreach(const QString &key, parts) {
+            ret += m_dictionaryModule->getEntry(key) +"<br />";
+        }
+        return ret;
+    } else {
+        return m_dictionaryModule->getEntry(string);
     }
-    case OBVCore::BibleQuoteDictModule: {
-        return m_bibleQuoteDict->getEntry(string);
-        break;
-    }
-    default:
-        return QString();
-    }
-
 }
 QStringList Dictionary::getAllKeys() const
 {
-    //DEBUG_FUNC_NAME
-    switch(m_moduleType) {
-    case OBVCore::ZefaniaLexModule: {
-        return m_zefaniaLex->getAllKeys();
-    }
-    case OBVCore::BibleQuoteDictModule: {
-        return m_bibleQuoteDict->getAllKeys();
-    }
-    default:
-        return QStringList();
-    }
-
+    return m_dictionaryModule->getAllKeys();
+}
+DictionaryModule * Dictionary::module() const
+{
+    return m_dictionaryModule.data();
+}
+QString Dictionary::moduleUID() const
+{
+    return QString();
 }

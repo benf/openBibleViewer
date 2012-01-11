@@ -13,23 +13,35 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "src/module/modulemanager.h"
+#include <QtCore/QPointer>
+
+#include "src/ui/interface/simple/simpleinterface.h"
+#include "src/ui/interface/advanced/advancedinterface.h"
+#include "src/ui/interface/study/studyinterface.h"
+#include "src/ui/dialog/settingsdialog.h"
+#include "src/ui/updateschecker.h"
+
+#include "src/core/notes/xmlnotes.h"
+#include "src/core/notes/textnotes.h"
+#include "src/core/dbghelper.h"
+#include "src/core/obvcore.h"
+#include "src/core/verse/versification/versification_kjv.h"
+#include "config.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
     m_reloadLang = false;
 }
 
 MainWindow::~MainWindow()
 {
-    DEBUG_FUNC_NAME
-    if(m_settings->defaultVersification != NULL) {
-        delete m_settings->defaultVersification;
-        m_settings->defaultVersification = NULL;
-    }
-    QHashIterator<int, ModuleSettings*> it(m_settings->m_moduleSettings);
+    //DEBUG_FUNC_NAME
+    QMapIterator<int, ModuleSettings*> it(m_settings->m_moduleSettings);
     while(it.hasNext()) {
         it.next();
         if(it.value() != NULL)
@@ -37,31 +49,37 @@ MainWindow::~MainWindow()
     }
     m_settings->m_moduleSettings.clear();
 
-    delete m_moduleManager;
-    m_moduleManager = 0;
     delete m_notes;
-    m_notes = 0;
+    m_notes = NULL;
+
     delete m_settings;
-    m_settings = 0;
+    m_settings = NULL;
 
     delete m_settingsFile;
-    m_settingsFile = 0;
+    m_settingsFile = NULL;
+
+    delete m_sessionFile;
+    m_sessionFile = NULL;
 
     delete m_session;
     m_session = NULL;
+
     delete ui;
-    ui = 0;
-    delete m_interface;
-    m_interface = 0;
+    ui = NULL;
+
+    delete m_moduleManager;
+    m_moduleManager = NULL;
 }
 
 
 void MainWindow::init(const QString &homeDataPath, QSettings *settingsFile)
 {
-    VERSION = "0.5.80";
-    BUILD =  "2011-04-14";//jear-month-day
+    VERSION = QString(OBV_VERSION_NUMBER);
+    BUILD =  QString(OBV_BUILD_DATE);//jear-month-day
     m_homeDataPath = homeDataPath;
     m_settingsFile = settingsFile;
+    m_sessionFile = new QSettings(homeDataPath + "sessions.ini", QSettings::IniFormat);
+
     //create some important folders
     QDir d(m_homeDataPath);
     d.mkpath(m_homeDataPath + "index");
@@ -70,6 +88,7 @@ void MainWindow::init(const QString &homeDataPath, QSettings *settingsFile)
 
     m_moduleManager = new ModuleManager();
     m_settings = new Settings();
+    m_settings->session.setFile(m_sessionFile);
     m_notes = new XmlNotes();
     m_session = new Session();
     m_actions = new Actions(this);
@@ -82,15 +101,21 @@ void MainWindow::init(const QString &homeDataPath, QSettings *settingsFile)
     loadDefaultSettings();
     loadSettings();
 
+    UpdatesChecker *c = new UpdatesChecker(this);
+    setAll(c);
+    c->checkForUpdates();
+
     m_moduleManager->setSettings(m_settings);
     m_moduleManager->setNotes(m_notes);
     m_moduleManager->loadAllModules();
 
     loadInterface();
     restoreSession();
+
     if(firstStart) {
         QTimer::singleShot(1, this, SLOT(showSettingsDialog_Module()));
     }
+
 }
 void MainWindow::loadInterface()
 {
@@ -113,7 +138,6 @@ void MainWindow::deleteInterface()
 
     if(m_interface->hasMenuBar()) {
         delete m_menuBar;
-        //todo: remove the docks
     }
     QHash<DockWidget*, Qt::DockWidgetArea> docks = m_interface->docks();
     QHashIterator<DockWidget*, Qt::DockWidgetArea> it(docks);
@@ -124,11 +148,6 @@ void MainWindow::deleteInterface()
         }
     }
 
-    //todo: why not?
-    /*if(m_interface != 0) {
-        delete m_interface;
-        m_interface = 0;
-    }*/
     delete this->centralWidget();
 }
 void MainWindow::reloadInterface()
@@ -227,8 +246,16 @@ void MainWindow::loadDefaultSettings()
     m_settings->homePath = m_homeDataPath;
     m_settings->zefaniaBible_hardCache = true;
     m_settings->zefaniaBible_softCache = true;
+    m_settings->advancedSearchDock_useCurrentModule = true;
 
-    m_settings->defaultVersification = new Versification_KJV();
+#if !defined(Q_WS_X11)
+    m_settings->checkForUpdates = true;
+#else
+    m_settings->checkForUpdates = false;
+#endif
+
+
+    m_settings->defaultVersification = QSharedPointer<Versification> (new Versification_KJV());
 }
 void MainWindow::loadSettings()
 {
@@ -247,8 +274,11 @@ void MainWindow::loadSettings()
     m_settings->encoding = m_settingsFile->value("general/encoding", m_settings->encoding).toString();
     m_settings->zoomstep = m_settingsFile->value("general/zoomstep", m_settings->zoomstep).toInt();
     m_settings->language = m_settingsFile->value("general/language", QLocale::system().name()).toString();
+    m_settings->checkForUpdates = m_settingsFile->value("general/checkForUpdates", m_settings->checkForUpdates).toBool();
+
     m_settings->autoLayout = (Settings::LayoutEnum) m_settingsFile->value("window/layout", m_settings->autoLayout).toInt();
     m_settings->onClickBookmarkGo = m_settingsFile->value("window/onClickBookmarkGo", m_settings->onClickBookmarkGo).toBool();
+
 
     m_settings->textFormatting = m_settingsFile->value("bible/textFormatting", m_settings->textFormatting).toInt();
 
@@ -257,8 +287,10 @@ void MainWindow::loadSettings()
         m_settingsFile->setArrayIndex(i);
         ModuleSettings *m = new ModuleSettings();
         m->moduleID = m_settingsFile->value("id").toInt();
-        if(m->moduleID == -1)
+
+        if(m->moduleID == -1 || m_settingsFile->value("type").toInt() == -1)
             continue;
+
         m->moduleName = m_settingsFile->value("name").toString();
         m->moduleShortName = m_settingsFile->value("shortName").toString();
 
@@ -272,6 +304,8 @@ void MainWindow::loadSettings()
         m->zefbible_softCache = m_settingsFile->value("softCache", true).toBool();
 
         m->biblequote_removeHtml = m_settingsFile->value("removeHtml", true).toInt();
+        m->defaultModule = (OBVCore::DefaultModule) m_settingsFile->value("defaultModule", OBVCore::NotADefaultModule).toInt();
+        m->contentType = (OBVCore::ContentType) m_settingsFile->value("contentType", OBVCore::UnkownContent).toInt();
 
         m->styleSheet = m_settings->recoverUrl(m_settingsFile->value("styleSheet", ":/data/css/default.css").toString());
 
@@ -287,6 +321,9 @@ void MainWindow::loadSettings()
         displaySettings->setShowNotes(m_settingsFile->value("showNotes", true).toBool());
         displaySettings->setShowMarks(m_settingsFile->value("showMarks", true).toBool());
         displaySettings->setShowBottomToolBar(m_settingsFile->value("showBottomToolBar", true).toBool());
+        displaySettings->setShowRMac(m_settingsFile->value("showRMac", true).toBool());
+        displaySettings->setShowCaptions(m_settingsFile->value("showCaptions", false).toBool());
+        displaySettings->setShowProlog(m_settingsFile->value("showProlog", false).toBool());
         m->setDisplaySettings(displaySettings);
 
         m_settings->m_moduleSettings.insert(m->moduleID, m);
@@ -294,44 +331,31 @@ void MainWindow::loadSettings()
 
     m_settingsFile->endArray();
     m_settings->sessionID = m_settingsFile->value("general/lastSession", "0").toString();
-
-    size = m_settingsFile->beginReadArray("sessions");
-    for(int i = 0; i < size; ++i) {
-        m_settingsFile->setArrayIndex(i);
-        Session session;
-        if(m_settingsFile->value("id") == m_settings->sessionID) {
-            const QStringList keys = m_settingsFile->childKeys();
-            for(int j = 0; j < keys.size(); j++) {
-                session.setData(keys.at(j), m_settingsFile->value(keys.at(j)));
-            }
-            m_settings->session = session;//its the current session
-        }
-        m_settings->sessionIDs.append(m_settingsFile->value("id").toString());
-        m_settings->sessionNames.append(m_settingsFile->value("name").toString());
-
-    }
-    m_settingsFile->endArray();
+    m_settings->session.setID(m_settings->sessionID);
 
 }
 
 
 void MainWindow::writeSettings()
 {
+    m_settingsFile->clear();
     m_settingsFile->setValue("general/version", m_settings->version);
     m_settingsFile->setValue("general/encoding", m_settings->encoding);
     m_settingsFile->setValue("general/zoomstep", m_settings->zoomstep);
     m_settingsFile->setValue("general/language", m_settings->language);
+    m_settingsFile->setValue("general/checkForUpdates", m_settings->checkForUpdates);
     m_settingsFile->setValue("general/lastSession", m_settings->sessionID);
     m_settingsFile->setValue("window/layout", m_settings->autoLayout);
     m_settingsFile->setValue("window/onClickBookmarkGo", m_settings->onClickBookmarkGo);
     m_settingsFile->setValue("bible/textFormatting", m_settings->textFormatting);
 
     m_settingsFile->beginWriteArray("module");
-    QHashIterator<int, ModuleSettings *> it(m_settings->m_moduleSettings);
+    QMapIterator<int, ModuleSettings *> it(m_settings->m_moduleSettings);
     for(int i = 0; it.hasNext(); ++i) {
         it.next();
         m_settingsFile->setArrayIndex(i);
         ModuleSettings *m = it.value();
+
         if(m->moduleID == -1)
             continue;
         m_settingsFile->setValue("id", m->moduleID);
@@ -346,19 +370,25 @@ void MainWindow::writeSettings()
         m_settingsFile->setValue("softCache", m->zefbible_softCache);
         m_settingsFile->setValue("encoding", m->encoding);
         m_settingsFile->setValue("styleSheet", m_settings->savableUrl(m->styleSheet));
+
+        m_settingsFile->setValue("defaultModule", m->defaultModule);
+        m_settingsFile->setValue("contentType", m->contentType);
         m_settingsFile->setValue("versificationFile", m_settings->savableUrl(m->versificationFile));
         m_settingsFile->setValue("versificationName", m->versificationName);
         m_settingsFile->setValue("useParentSettings", m->useParentSettings);
         m_settingsFile->setValue("parentID", m->parentID);
         if(!m->useParentSettings) {
-            ModuleDisplaySettings *displaySettings = m->displaySettings().data();
             if(m->displaySettings()) {
+                ModuleDisplaySettings *displaySettings = m->displaySettings().data();
                 m_settingsFile->setValue("showStudyNotes", displaySettings->showStudyNotes());
                 m_settingsFile->setValue("showStrong", displaySettings->showStrong());
                 m_settingsFile->setValue("showRefLinks", displaySettings->showRefLinks());
                 m_settingsFile->setValue("showNotes", displaySettings->showNotes());
                 m_settingsFile->setValue("showMarks", displaySettings->showMarks());
                 m_settingsFile->setValue("showBottomToolBar", displaySettings->showBottomToolBar());
+                m_settingsFile->setValue("showRMac", displaySettings->showRMac());
+                m_settingsFile->setValue("showCaptions", displaySettings->showCaptions());
+                m_settingsFile->setValue("showProlog", displaySettings->showProlog());
             }
         } else {
             m_settingsFile->remove("showStudyNotes");
@@ -367,21 +397,14 @@ void MainWindow::writeSettings()
             m_settingsFile->remove("showNotes");
             m_settingsFile->remove("showMarks");
             m_settingsFile->remove("showBottomToolBar");
+            m_settingsFile->remove("showRMac");
+            m_settingsFile->remove("showCaptions");
+            m_settingsFile->remove("showProlog");
         }
     }
 
     m_settingsFile->endArray();
 
-    m_settingsFile->beginWriteArray("sessions");
-    m_settingsFile->setArrayIndex(m_settings->sessionIDs.lastIndexOf(m_settings->sessionID));
-    {
-        QMapIterator <QString, QVariant> i = m_settings->session.getInterator();
-        while(i.hasNext()) {
-            i.next();
-            m_settingsFile->setValue(i.key(), i.value());
-        }
-    }
-    m_settingsFile->endArray();
 
 }
 void MainWindow::saveSettings(Settings newSettings, bool modifedModuleSettings)
@@ -394,20 +417,21 @@ void MainWindow::saveSettings(Settings newSettings, bool modifedModuleSettings)
     if(oldSettings.language != newSettings.language /* || m_settings->theme != set->theme*/) {
         loadLanguage(newSettings.language);
     }
-    if(oldSettings.session.getData("interface", "advanced") != newSettings.session.getData("interface", "advanced")) {
+    myDebug() << oldSettings.session.getData("interface") << newSettings.session.getData("interface");
+    if(m_interface->name() != newSettings.session.getData("interface")) {
         reloadInterface();
     }
     emit settingsChanged(oldSettings, newSettings, modifedModuleSettings);
 }
 void MainWindow::showSettingsDialog(int tabID)
 {
-    SettingsDialog setDialog(this);
-    connect(&setDialog, SIGNAL(settingsChanged(Settings, bool)), this, SLOT(saveSettings(Settings, bool)));
-    setDialog.setSettings(*m_settings);
-    setDialog.setWindowTitle(tr("Configuration"));
-    setDialog.setCurrentTab(tabID);
-    setDialog.show();
-    setDialog.exec();
+    QPointer<SettingsDialog> dlg = new SettingsDialog(this);
+    connect(dlg, SIGNAL(settingsChanged(Settings, bool)), this, SLOT(saveSettings(Settings, bool)));
+    dlg->setSettings(*m_settings);
+    dlg->setWindowTitle(tr("Configuration"));
+    dlg->setCurrentTab(tabID);
+    dlg->exec();
+    delete dlg;
 }
 void MainWindow::showSettingsDialog_Module()
 {

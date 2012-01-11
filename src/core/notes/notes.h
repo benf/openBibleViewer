@@ -34,21 +34,26 @@ signals:
     void noteAdded(QString id);
 public:
     Notes() {}
+    enum NotesTextType {
+        HtmlNotes,
+        TextNotes
+    };
+    virtual Notes::NotesTextType type() const = 0;
     /**
       Init the notes;
-      \param fileName The path to the notes xml file.
+      \param fileName The path to the notes file or folder.
       */
     virtual void init(const QString &fileName) = 0;
     /**
-      Load notes data from an xml-file
+      Load notes data.
       */
     virtual int loadNotes() = 0;
-    /*!
-      Pharse note data from the xml-file
+    /**
+      Pharse note data.
       */
     virtual int readNotes() = 0;
-    /*!
-      Save the data in a xml file
+    /**
+      Save the data.
       */
     virtual int saveNotes() = 0;
     /**

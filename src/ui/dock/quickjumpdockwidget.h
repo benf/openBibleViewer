@@ -17,6 +17,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include <QDockWidget>
 #include <QCompleter>
 #include "dockwidget.h"
+#include "src/ui/interface/advanced/manager/windowmanager.h"
 namespace Ui
 {
 class QuickJumpDockWidget;
@@ -29,11 +30,12 @@ class QuickJumpDockWidget : public DockWidget
     Q_OBJECT
 private slots:
     void goToPos();
-    void setBooks(Versification *v11n);
+    void setBooks(QSharedPointer<Versification> v11n);
 public:
     QuickJumpDockWidget(QWidget *parent = 0);
     ~QuickJumpDockWidget();
     void init();
+    void setWindowManager(WindowManager *manager);
 
 
 protected:
@@ -44,6 +46,8 @@ private:
     QStringList m_books;
 
     QCompleter *m_completer;
+
+    WindowManager *m_windowManager;
 };
 
 #endif // QUICKJUMPDOCKWIDGET_H

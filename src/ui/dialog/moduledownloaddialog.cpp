@@ -15,6 +15,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 #include "ui_moduledownloaddialog.h"
 #include "src/core/dbghelper.h"
 #include <QtCore/QList>
+#include <QtCore/QPointer>
 #include <QtCore/QDir>
 #include <QtCore/QUrl>
 #include <QtCore/QFile>
@@ -75,11 +76,13 @@ void ModuleDownloadDialog::readModules()
         folderIcon.addPixmap(style->standardPixmap(QStyle::SP_DirOpenIcon), QIcon::Normal, QIcon::On);
         top->setIcon(0, folderIcon);
         QDomElement e = id.toElement();
-        QString typ = e.attribute("typ", "bible");
+        QString typ = e.attribute("type", "bible");
         if(typ == "bible") {
             top->setText(0, tr("Bibles"));
         } else if(typ == "strong") {
-            top->setText(0, tr("Dictionarys"));
+            top->setText(0, tr("Strong Dictionarys"));
+        } else if(typ == "additional") {
+            top->setText(0, tr("Additional"));
         }
         items.append(top);
 
@@ -147,11 +150,13 @@ void ModuleDownloadDialog::download()
     connect(m, SIGNAL(downloaded(QMap<QString, QString>)), this, SIGNAL(downloaded(QMap<QString, QString>)));
     m->setSettings(&m_set);
 
-    DownloadProgressDialog *dialog = new DownloadProgressDialog(this);
+    QPointer<DownloadProgressDialog> dialog = new DownloadProgressDialog(this);
+
     dialog->setModuleDownloader(m);
     dialog->start();
     close();
     dialog->exec();
+    delete dialog;
 
 }
 

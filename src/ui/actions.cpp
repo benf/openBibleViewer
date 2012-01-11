@@ -17,10 +17,6 @@ Actions::Actions(QObject *parent) :
     QObject(parent)
 {
 }
-void Actions::showChapter(const int moduleID, const int bookID, const int chapterID)
-{
-    emit _showChapter(moduleID, bookID, chapterID);
-}
 void Actions::previousChapter()
 {
     emit _previousChapter();
@@ -30,67 +26,92 @@ void Actions::nextChapter()
 {
     emit _nextChapter();
 }
+void Actions::get(const QString &url, const Actions::OpenLinkModifiers mod)
+{
+    emit _get(url, mod);
+}
+
+void Actions::get(const QUrl &url, const Actions::OpenLinkModifiers mod)
+{
+    emit _get(url.toString(), mod);
+}
+
+void Actions::get(const VerseUrl &url, const Actions::OpenLinkModifiers mod)
+{
+    emit _get(url, mod);
+}
 
 void Actions::get(const QString &url)
 {
-    emit _get(url);
+    get(url, Actions::NoModifer);
 }
+
 void Actions::get(const QUrl &url)
 {
-    emit _get(url.toString());
+    get(url, Actions::NoModifer);
 }
+
 void Actions::get(const VerseUrl &url)
 {
-    emit _get(url);
+    get(url, Actions::NoModifer);
 }
-void Actions::showNote(const QString &noteID)
+
+void Actions::newGet(const QUrl &url)
 {
-    emit _showNote(noteID);
+    get(url, Actions::OpenInNewWindow);
 }
+
 void Actions::setCurrentBook(const QSet<int> &bookID)
 {
-    //DEBUG_FUNC_NAME
     emit _setCurrentBook(bookID);
 }
+
 void Actions::setCurrentChapter(const QSet<int> &chapterID)
 {
-    //DEBUG_FUNC_NAME
     emit _setCurrentChapter(chapterID);
 }
+
 void Actions::reloadActive()
 {
     emit _reloadActive();
 }
+
 void Actions::setTitle(const QString &title)
 {
-    //myDebug() << title;
     emit _setTitle(title);
 }
 
-void Actions::updateChapters(int bookID, Versification *v11n)
+void Actions::updateChapters(int bookID, QSharedPointer<Versification> v11n)
 {
     if(v11n != NULL)
         emit _updateChapters(bookID, v11n);
 }
 
-void Actions::updateBooks(Versification *v11n)
+void Actions::updateBooks(QSharedPointer<Versification> v11n)
 {
     if(v11n != NULL)
         emit _updateBooks(v11n);
 }
+
 void Actions::clearBooks()
 {
     emit _clearBooks();
 }
+
 void Actions::clearChapters()
 {
     emit _clearChapters();
+}
+void Actions::clear()
+{
+    emit _clear();
 }
 
 void Actions::setCurrentModule(const int moduleID)
 {
     emit _setCurrentModule(moduleID);
 }
+
 void Actions::setTabbedView()
 {
     emit _setTabbedView();
@@ -100,35 +121,31 @@ void Actions::setSubWindowView()
 {
     emit _setSubWindowView();
 }
-void Actions::historySetUrl(const QString &url)
-{
-    emit _historySetUrl(url);
-}
+
 void Actions::showTextRanges(const QString &html, const TextRanges &range, const VerseUrl &url)
 {
     emit _showTextRanges(html, range, url);
 }
-void Actions::loadBibleList(bool hadBible)
+
+void Actions::showHtml(const QString &html)
 {
-    emit _loadBibleList(hadBible);
-}
-void Actions::reloadChapter()
-{
-    reloadChapter(false);
-}
-void Actions::reloadChapter(bool full)
-{
-    emit _reloadChapter(full);
-}
-void Actions::reloadBible()
-{
-    emit _reloadBible();
+    emit _showHtml(html);
 }
 
-void Actions::reShowCurrentRange()
+void Actions::loadVerseTable(bool hadModule)
 {
-    emit _reShowCurrentRange();
+    emit _loadVerseTable(hadModule);
 }
+
+void Actions::reloadCurrentRange()
+{
+    reloadCurrentRange(false);
+}
+void Actions::reloadCurrentRange(bool full)
+{
+    emit _reloadCurrentRange(full);
+}
+
 void Actions::newSubWindowIfEmpty()
 {
     emit _newSubWindowIfEmpty();
@@ -137,8 +154,43 @@ void Actions::searchInText(SearchResult *result)
 {
     emit _searchInText(result);
 }
+
 void Actions::searchInText()
 {
     emit _searchInText();
 }
 
+void Actions::needBibleWindow()
+{
+    emit _needBibleWindow();
+}
+
+void Actions::needDictionaryWindow()
+{
+    emit _needDictionaryWindow();
+}
+
+void Actions::needWebWindow()
+{
+    emit _needWebWindow();
+}
+
+void Actions::showDictEntry(const QString &key, int moduleID)
+{
+    emit _showDictEntry(key, moduleID);
+}
+
+void Actions::setCurrentVerseTableID(const int verseTableID)
+{
+    emit _setCurrentVerseTableID(verseTableID);
+}
+
+void Actions::reloadIf(const VerseUrl &url)
+{
+    emit _reloadIf(url);
+}
+
+void Actions::moduleChanged(const int moduleID)
+{
+    emit _moduleChanged(moduleID);
+}

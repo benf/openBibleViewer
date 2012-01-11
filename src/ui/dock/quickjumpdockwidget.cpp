@@ -13,7 +13,7 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "quickjumpdockwidget.h"
 #include "ui_quickjumpdockwidget.h"
-#include "src/core/biblelink.h"
+#include "src/core/link/biblelink.h"
 #include "src/core/dbghelper.h"
 #include <QtGui/QKeyEvent>
 
@@ -32,12 +32,18 @@ QuickJumpDockWidget::~QuickJumpDockWidget()
 {
     delete ui;
 }
+
+void QuickJumpDockWidget::setWindowManager(WindowManager *manager)
+{
+    m_windowManager = manager;
+}
+
 void QuickJumpDockWidget::init()
 {
-    DEBUG_FUNC_NAME;
-    connect(m_actions, SIGNAL(_updateBooks(Versification*)), this, SLOT(setBooks(Versification*)));
+    connect(m_actions, SIGNAL(_updateBooks(QSharedPointer<Versification>)), this, SLOT(setBooks(QSharedPointer<Versification>)));
 }
-void QuickJumpDockWidget::setBooks(Versification *v11n)
+
+void QuickJumpDockWidget::setBooks(QSharedPointer<Versification> v11n)
 {
     //DEBUG_FUNC_NAME;
     m_books = v11n->bookNames().values();
@@ -45,10 +51,10 @@ void QuickJumpDockWidget::setBooks(Versification *v11n)
     QStringList l;
     l << m_books;
     l << m_hist;
-    /*if(m_completer != NULL) {
-        delete m_completer;
+    if(ui->lineEdit_goTo->completer() != NULL) {
+        delete ui->lineEdit_goTo->completer();
         m_completer = NULL;
-    }*/
+    }
     m_completer = new QCompleter(l, this);
     m_completer->setCaseSensitivity(Qt::CaseInsensitive);
     ui->lineEdit_goTo->setCompleter(m_completer);
@@ -58,22 +64,52 @@ void QuickJumpDockWidget::goToPos()
 {
     DEBUG_FUNC_NAME;
     const QString text = ui->lineEdit_goTo->text();
+    if(text.isEmpty()) {
+        myWarning() << "no module loaded";
+        return;
+    }
     m_hist << text;
 
     QStringList l;
     l << m_books;
     l << m_hist;
-    /*if(m_completer != NULL) {
-        delete m_completer;
+    if(ui->lineEdit_goTo->completer()!= NULL) {
+        delete ui->lineEdit_goTo->completer();
         m_completer = NULL;
-    }*/
+    }
     m_completer = new QCompleter(l, this);
     m_completer->setCaseSensitivity(Qt::CaseInsensitive);
     ui->lineEdit_goTo->setCompleter(m_completer);
+    if(m_windowManager->activeForm() && m_windowManager->activeForm()->type() == Form::BibleForm) {
+        BibleForm *f = (BibleForm*)(m_windowManager->activeForm());
+        BibleLink link(f->verseModule()->moduleID(), f->verseModule()->versification());
 
-    BibleLink link(m_moduleManager->verseModule()->moduleID(), m_moduleManager->verseModule()->versification());
+        m_actions->get(link.getUrl(text));
+    } else {
 
-    m_actions->get(link.getUrl(text));
+        m_windowManager->newBibleSubWindow();
+        int defaultModuleID = -1;
+        QMapIterator<int, ModuleSettings*> i(m_settings->m_moduleSettings);
+        while(i.hasNext()) {
+            i.next();
+            if(i.value()->defaultModule == OBVCore::DefaultBibleModule)
+                defaultModuleID = i.key();
+
+        }
+        if(defaultModuleID == -1) {
+            QMapIterator<int, Module*> i2(m_moduleManager->m_moduleMap->data);
+            while(i2.hasNext()) {
+                i2.next();
+                if(i2.value()->moduleClass() == OBVCore::BibleModuleClass)
+                    defaultModuleID = i2.key();
+            }
+        }
+        BibleLink link(defaultModuleID, m_settings->getV11N(defaultModuleID));
+        if(link.isBibleLink(text)) {
+            m_actions->get(link.getUrl(text));
+        }
+
+    }
     return;
 }
 void QuickJumpDockWidget::changeEvent(QEvent *e)

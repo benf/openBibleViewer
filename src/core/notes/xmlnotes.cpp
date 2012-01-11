@@ -23,7 +23,10 @@ XmlNotes::XmlNotes()
 {
     m_isLoaded = false;
 }
-
+Notes::NotesTextType XmlNotes::type() const
+{
+    return Notes::HtmlNotes;
+}
 void XmlNotes::init(const QString &fileName)
 {
     m_fileName = fileName;
@@ -44,7 +47,7 @@ void XmlNotes::loadingNewInstance()
 
 int XmlNotes::loadNotes()
 {
-    DEBUG_FUNC_NAME
+    //DEBUG_FUNC_NAME
     QFile file(m_fileName);
     doc.clear();
     if(!file.open(QIODevice::ReadOnly | QIODevice::Text)) {

@@ -13,7 +13,12 @@ this program; if not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
 #include "moduleconfigdialog.h"
 #include "ui_moduleconfigdialog.h"
+#include "src/module/bible/zefania-bible.h"
+#include "src/module/module.h"
+#include "src/core/dbghelper.h"
 
+
+#include <QtGui/QFileDialog>
 
 ModuleConfigDialog::ModuleConfigDialog(QWidget *parent) :
     QDialog(parent),
@@ -25,19 +30,50 @@ ModuleConfigDialog::ModuleConfigDialog(QWidget *parent) :
     connect(m_ui->toolButton_file, SIGNAL(clicked()), this, SLOT(fileSelect()));
     connect(m_ui->comboBox_type, SIGNAL(currentIndexChanged(int)), this, SLOT(moduleTypeChanged(int)));
     connect(m_ui->checkBox_useParentSettings, SIGNAL(stateChanged(int)), this, SLOT(useParentsSettingsChanged(int)));
+
     m_ui->comboBox_type->insertItems(0, Module::moduleTypeNames());
+
+    QStringList defaultModules;
+    defaultModules << tr("Not a Default Module") << tr("Default Bible")
+                   << tr("Default Strong Dictionary") << tr("Default Grammar Dictionary")
+                   << tr("Default Dictionary") << tr("Default RMAC Module");
+    m_ui->comboBox_defaultModule->insertItems(0, defaultModules);
+
+    QStringList contentTypes;
+    contentTypes << tr("Unkown") << tr("Bible")
+                   << tr("Bible OT") << tr("Bible NT")
+                   << tr("Strongs") << tr("Strongs Greek") << tr("Strongs Hebrew")
+                   << tr("RMAC")
+                   << tr("Word Dictionary")
+                   << tr("Dictionary")
+                   << tr("Gram Dictionary");
+    m_ui->comboBox_contentType->insertItems(0, contentTypes);
+
+
+    m_encodings << "Default" << "Apple Roman" << "Big5" << "Big5-HKSCS" << "EUC-JP" << "EUC-KR" << "GB18030-0" << "IBM 850"
+                << "IBM 866" << "IBM 874" << "ISO 2022-JP" << "ISO 8859-1" << "ISO 8859-2" << "ISO 8859-3" << "ISO 8859-4"
+                << "ISO 8859-5" << "ISO 8859-6" << "ISO 8859-7" << "ISO 8859-8" << "ISO 8859-9" << "ISO 8859-10"
+                << "ISO 8859-13" << "ISO 8859-14" << "ISO 8859-15" << "ISO 8859-16" << "Iscii-Bng" << "Dev" << "Gjr"
+                << "Knd" << "Mlm" << "Ori" << "Pnj" << "Tlg" << "Tml" << "JIS X 0201" << "JIS X 0208" << "KOI8-R"
+                << "KOI8-U" << "MuleLao-1" << "ROMAN8" << "Shift-JIS" << "TIS-620" << "TSCII" << "UTF-8" << "UTF-16"
+                << "UTF-16BE" << "UTF-16LE" << "UTF-32" << "UTF-32BE" << "UTF-32LE" << "Windows-1250" << "Windows-1251" << "Windows-1252"
+                << "Windows-1253" << "Windows-1254" << "Windows-1255" << "Windows-1256" << "Windows-1257" << "Windows-1258" << "WINSAMI2";
+    m_ui->comboBox_encoding->clear();
+    m_ui->comboBox_encoding->insertItems(0, m_encodings);
 }
 
 ModuleConfigDialog::~ModuleConfigDialog()
 {
     delete m_ui;
 }
+
 void ModuleConfigDialog::setModule(ModuleSettings *config)
 {
-    //DEBUG_FUNC_NAME
     m_moduleSettings = config;
+
     m_ui->lineEdit_name->setText(config->moduleName);
     m_ui->lineEdit_path->setText(config->modulePath);
+    m_ui->lineEdit_shortName->setText(config->moduleShortName);
     m_ui->comboBox_type->setCurrentIndex(config->moduleType);
     m_ui->comboBox_textFromatting->setCurrentIndex(config->zefbible_textFormatting);
     if(config->biblequote_removeHtml == true)
@@ -56,16 +92,6 @@ void ModuleConfigDialog::setModule(ModuleSettings *config)
         m_ui->checkBox_softCache->setChecked(false);
 
 
-    m_encodings << "Default" << "Apple Roman" << "Big5" << "Big5-HKSCS" << "EUC-JP" << "EUC-KR" << "GB18030-0" << "IBM 850"
-                << "IBM 866" << "IBM 874" << "ISO 2022-JP" << "ISO 8859-1" << "ISO 8859-2" << "ISO 8859-3" << "ISO 8859-4"
-                << "ISO 8859-5" << "ISO 8859-6" << "ISO 8859-7" << "ISO 8859-8" << "ISO 8859-9" << "ISO 8859-10"
-                << "ISO 8859-13" << "ISO 8859-14" << "ISO 8859-15" << "ISO 8859-16" << "Iscii-Bng" << "Dev" << "Gjr"
-                << "Knd" << "Mlm" << "Ori" << "Pnj" << "Tlg" << "Tml" << "JIS X 0201" << "JIS X 0208" << "KOI8-R"
-                << "KOI8-U" << "MuleLao-1" << "ROMAN8" << "Shift-JIS" << "TIS-620" << "TSCII" << "UTF-8" << "UTF-16"
-                << "UTF-16BE" << "UTF-16LE" << "UTF-32" << "UTF-32BE" << "UTF-32LE" << "Windows-1250" << "Windows-1251" << "Windows-1252"
-                << "Windows-1253" << "Windows-1254" << "Windows-1255" << "Windows-1256" << "Windows-1257" << "Windows-1258" << "WINSAMI2";
-    m_ui->comboBox_encoding->clear();
-    m_ui->comboBox_encoding->insertItems(0, m_encodings);
     if(m_encodings.lastIndexOf(config->encoding) != -1) {
         m_ui->comboBox_encoding->setCurrentIndex(m_encodings.lastIndexOf(config->encoding));
     } else {
@@ -78,24 +104,37 @@ void ModuleConfigDialog::setModule(ModuleSettings *config)
     }
     useParentsSettingsChanged(m_ui->checkBox_useParentSettings->checkState());
 
-    m_ui->checkBox_showBottomToolbar->setChecked(config->displaySettings()->showBottomToolBar());
-    m_ui->checkBox_showMarks->setChecked(config->displaySettings()->showMarks());
-    m_ui->checkBox_showNotes->setChecked(config->displaySettings()->showNotes());
-    m_ui->checkBox_showRefLinks->setChecked(config->displaySettings()->showRefLinks());
-    m_ui->checkBox_showStrong->setChecked(config->displaySettings()->showStrong());
-    m_ui->checkBox_showStudyNotes->setChecked(config->displaySettings()->showStudyNotes());
+    ModuleDisplaySettings *dis = NULL;
+    if(!config->displaySettings().isNull()) {
+        dis = config->displaySettings().data();
+
+    } else if(config->parent()) {
+        dis = config->parent()->displaySettings().data();
+    }
+    if(dis != NULL) {
+        m_ui->checkBox_showBottomToolbar->setChecked(dis->showBottomToolBar());
+        m_ui->checkBox_showMarks->setChecked(dis->showMarks());
+        m_ui->checkBox_showNotes->setChecked(dis->showNotes());
+        m_ui->checkBox_showRefLinks->setChecked(dis->showRefLinks());
+        m_ui->checkBox_showStrong->setChecked(dis->showStrong());
+        m_ui->checkBox_showStudyNotes->setChecked(dis->showStudyNotes());
+        m_ui->checkBox_showRMac->setChecked(dis->showRMac());
+        m_ui->checkBox_showCaptions->setChecked(dis->showCaptions());
+        m_ui->checkBox_showProlog->setChecked(dis->showProlog());
+    }
 
     m_ui->lineEdit_styleSheet->setText(config->styleSheet);
+    m_ui->comboBox_defaultModule->setCurrentIndex((int) config->defaultModule);
+    m_ui->comboBox_contentType->setCurrentIndex((int)config->contentType);
 }
 void ModuleConfigDialog::bsave()
 {
-    //DEBUG_FUNC_NAME
-
+    //remove hard cache of zefania Bible Modules
     if(m_moduleSettings->moduleType == OBVCore::ZefaniaBibleModule &&
             (m_moduleSettings->encoding != m_encodings.at(m_ui->comboBox_encoding->currentIndex()) ||
              (int)m_moduleSettings->moduleType != m_ui->comboBox_type->currentIndex() ||
              m_moduleSettings->modulePath != m_ui->lineEdit_path->text())) {
-        //myDebug() << "clear hard in zefania cache";
+
         ZefaniaBible zef;
         zef.removeHardCache(m_ui->lineEdit_path->text());
         if(m_moduleSettings->modulePath != m_ui->lineEdit_path->text()) {
@@ -104,6 +143,7 @@ void ModuleConfigDialog::bsave()
     }
     m_moduleSettings->moduleName = m_ui->lineEdit_name->text();
     m_moduleSettings->modulePath = m_ui->lineEdit_path->text();
+    m_moduleSettings->moduleShortName = m_ui->lineEdit_shortName->text();
     m_moduleSettings->moduleType = (OBVCore::ModuleType) m_ui->comboBox_type->currentIndex();
     m_moduleSettings->zefbible_textFormatting = (ModuleSettings::ZefBible_TextFormating) m_ui->comboBox_textFromatting->currentIndex();
     m_moduleSettings->biblequote_removeHtml = m_ui->checkBox_removeHtml->isChecked();
@@ -111,6 +151,9 @@ void ModuleConfigDialog::bsave()
     m_moduleSettings->zefbible_softCache = m_ui->checkBox_softCache->isChecked();
     m_moduleSettings->encoding = m_encodings.at(m_ui->comboBox_encoding->currentIndex());
     m_moduleSettings->styleSheet = m_ui->lineEdit_styleSheet->text();
+
+    m_moduleSettings->defaultModule = (OBVCore::DefaultModule) m_ui->comboBox_defaultModule->currentIndex();
+    m_moduleSettings->contentType = (OBVCore::ContentType) m_ui->comboBox_contentType->currentIndex();
 
     m_moduleSettings->useParentSettings = m_ui->checkBox_useParentSettings->isChecked();
     if(!m_moduleSettings->useParentSettings) {
@@ -120,9 +163,11 @@ void ModuleConfigDialog::bsave()
         m_moduleSettings->displaySettings()->setShowRefLinks(m_ui->checkBox_showRefLinks->isChecked());
         m_moduleSettings->displaySettings()->setShowStrong(m_ui->checkBox_showStrong->isChecked());
         m_moduleSettings->displaySettings()->setShowStudyNotes(m_ui->checkBox_showStudyNotes->isChecked());
-    }
+        m_moduleSettings->displaySettings()->setShowRMac(m_ui->checkBox_showRMac->isChecked());
+        m_moduleSettings->displaySettings()->setShowCaptions(m_ui->checkBox_showCaptions->isChecked());
+        m_moduleSettings->displaySettings()->setShowProlog(m_ui->checkBox_showProlog->isChecked());
 
-    //todo:if path type or encoding changed clear cache
+    }
     emit save(m_moduleSettings);
 }
 void ModuleConfigDialog::moduleTypeChanged(int id)
@@ -142,22 +187,10 @@ void ModuleConfigDialog::moduleTypeChanged(int id)
 }
 void ModuleConfigDialog::fileSelect()
 {
-    /*if(m_moduleSettings->isDir) {
-        QFileDialog dialog(this);
-        dialog.setFileMode(QFileDialog::Directory);
-        dialog.setOption(QFileDialog::ShowDirsOnly, true);
-        if(dialog.exec()) {
-            const QStringList fileName = dialog.selectedFiles();
-            if(fileName.size() > 0) {
-                m_ui->lineEdit_path->setText(fileName.first());
-            }
-        }
-    } else {*/
-    const QString fileName = QFileDialog::getOpenFileName(this, tr("Open Bible"), m_moduleSettings->modulePath, tr("Bibles (*.ini *.xml *.*)"));
+    const QString fileName = QFileDialog::getOpenFileName(this, tr("Open Bible"), m_moduleSettings->modulePath, tr("Modules (*.ini *.xml *.*)"));
     if(!fileName.isEmpty()) {
         m_ui->lineEdit_path->setText(fileName);
     }
-    /* }*/
     return;
 }
 void ModuleConfigDialog::useParentsSettingsChanged(int newState)
