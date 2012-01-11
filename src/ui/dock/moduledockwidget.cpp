@@ -95,7 +95,7 @@ void ModuleDockWidget::loadModuleData(QModelIndex index, Actions::OpenLinkModifi
             VerseUrl url;
             VerseUrlRange range;
             range.setModule(moduleID);
-
+            //open the same verse your were reading
             range.setBook(VerseUrlRange::LoadCurrentBook);
             range.setChapter(VerseUrlRange::LoadCurrentChapter);
             range.setStartVerse(VerseUrlRange::LoadCurrentVerse);
